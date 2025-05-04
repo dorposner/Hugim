@@ -1,0 +1,224 @@
+# allocator.py
+#
+# --------------------------------------------------------------
+#  Simple Hugim Allocation Proof-of-Concept
+#  • Reads campers, hugim (activities), and camper preferences
+#  • Gives each camper exactly 3 different hugim if possible
+#  • Five preference rounds (pref-1 … pref-5) + random fill
+#  • Writes results and prints a short console summary
+# --------------------------------------------------------------
+
+import os
+import random
+from collections import defaultdict
+
+import pandas as pd
+
+# ---------------------------- CONFIG ---------------------------
+
+NUM_ASSIGNMENTS_TARGET = 3      # each camper needs 3 hugim
+PREFERENCES_PER_CAMPER = 5      # max preference columns in preferences.csv
+
+CAMPERS_DATA_FILE      = 'campers.csv'
+HUGIM_DATA_FILE        = 'hugim.csv'
+PREFERENCES_DATA_FILE  = 'preferences.csv'
+
+OUTPUT_ASSIGNMENTS_FILE = 'assignments_output.csv'
+OUTPUT_STATS_FILE       = 'stats_output.csv'
+OUTPUT_UNASSIGNED_FILE  = 'unassigned_campers_output.csv'
+
+RANDOM_SEED = 42
+random.seed(RANDOM_SEED)
+
+# ----------------------- DATA LOADERS --------------------------
+
+def load_hugim(path: str) -> dict:
+    """
+    Returns {hug_name: {'capacity': int, 'enrolled': set()}}
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f'Hugim file not found: {path}')
+
+    df = pd.read_csv(path)
+    if 'HugName' not in df.columns or 'Capacity' not in df.columns:
+        df.columns = ['HugName', 'Capacity']   # fallback header
+
+    hugim = {}
+    for _, row in df.iterrows():
+        name = str(row['HugName']).strip()
+        if not name:
+            continue
+        try:
+            cap = int(row['Capacity'])
+        except ValueError:
+            continue
+        hugim[name] = dict(capacity=cap, enrolled=set())
+    return hugim
+
+
+def load_campers(path: str) -> dict:
+    """
+    Returns {camper_id: {'missed_first': bool, 'needs': 3,
+                         'assigned': [], 'preferences': []}}
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f'Campers file not found: {path}')
+
+    df = pd.read_csv(path)
+    if 'CamperID' not in df.columns or 'Got1stChoiceLastWeek' not in df.columns:
+        df.columns = ['CamperID', 'Got1stChoiceLastWeek']
+
+    campers = {}
+    for _, row in df.iterrows():
+        cid = str(row['CamperID']).strip()
+        if not cid:
+            continue
+        missed = str(row['Got1stChoiceLastWeek']).strip().upper() != 'YES'
+        campers[cid] = dict(
+            missed_first=missed,
+            needs=NUM_ASSIGNMENTS_TARGET,
+            assigned=[],
+            preferences=[]
+        )
+    return campers
+
+
+def load_preferences(path: str, campers: dict) -> None:
+    """
+    Fills campers[cid]['preferences'] with a list (up to 5 entries).
+    Ignores duplicates and unknown campers.
+    """
+    if not os.path.exists(path):
+        raise FileNotFoundError(f'Preferences file not found: {path}')
+
+    df = pd.read_csv(path)
+    pref_cols = df.columns[1:1 + PREFERENCES_PER_CAMPER]
+
+    for _, row in df.iterrows():
+        cid = str(row.iloc[0]).strip()
+        if cid not in campers:
+            continue
+        prefs = []
+        for col in pref_cols:
+            if col not in row or pd.isna(row[col]):
+                continue
+            val = str(row[col]).strip()
+            if val and val not in prefs:       # dedupe
+                prefs.append(val)
+        campers[cid]['preferences'] = prefs
+
+# --------------------- ALLOCATION ENGINE -----------------------
+
+def preference_round(campers: dict, hugim: dict, pref_idx: int) -> None:
+    """One pass: everyone’s N-th choice."""
+    applicants = defaultdict(list)  # {hug: [camper_id]}
+    for cid, data in campers.items():
+        if data['needs'] == 0:
+            continue
+        if pref_idx >= len(data['preferences']):
+            continue
+        hug = data['preferences'][pref_idx]
+        if hug not in hugim:
+            continue
+        if hug in [h for h, _ in data['assigned']]:
+            continue
+        applicants[hug].append(cid)
+
+    for hug, demanders in applicants.items():
+        spots = hugim[hug]['capacity'] - len(hugim[hug]['enrolled'])
+        if spots <= 0:
+            continue
+
+        # fairness: missed_first campers first, then random
+        random.shuffle(demanders)
+        demanders.sort(key=lambda c: 0 if campers[c]['missed_first'] else 1)
+
+        winners = demanders[:spots]
+        for cid in winners:
+            campers[cid]['assigned'].append((hug, f'Pref_{pref_idx+1}'))
+            campers[cid]['needs'] -= 1
+            hugim[hug]['enrolled'].add(cid)
+
+
+def random_fill(campers: dict, hugim: dict) -> None:
+    seats = []
+    for hug, info in hugim.items():
+        seats.extend([hug] * (info['capacity'] - len(info['enrolled'])))
+    random.shuffle(seats)
+
+    for cid, data in campers.items():
+        seat_idx = 0
+        while data['needs'] > 0 and seat_idx < len(seats):
+            hug = seats[seat_idx]
+            seat_idx += 1
+            if hug in [h for h, _ in data['assigned']]:
+                continue
+            campers[cid]['assigned'].append((hug, 'Random'))
+            campers[cid]['needs'] -= 1
+            hugim[hug]['enrolled'].add(cid)
+
+
+def run_allocation(campers: dict, hugim: dict) -> None:
+    for i in range(PREFERENCES_PER_CAMPER):
+        preference_round(campers, hugim, i)
+    random_fill(campers, hugim)
+
+# ----------------------- OUTPUT HELPERS ------------------------
+
+def save_assignments(campers: dict, path: str) -> None:
+    rows = []
+    headers = ['CamperID'] + [f'Hug_{i+1}' for i in range(NUM_ASSIGNMENTS_TARGET)]
+    for cid, data in campers.items():
+        hugs_only = [h for h, _ in data['assigned']]
+        rows.append([cid] + hugs_only + [''] * (NUM_ASSIGNMENTS_TARGET - len(hugs_only)))
+    pd.DataFrame(rows, columns=headers).to_csv(path, index=False)
+
+
+def save_unassigned(campers: dict, path: str) -> None:
+    unassigned = []
+    for cid, data in campers.items():
+        if data['needs'] > 0:
+            unassigned.append([cid,
+                               NUM_ASSIGNMENTS_TARGET - data['needs'],
+                               data['needs']])
+    if unassigned:
+        pd.DataFrame(unassigned,
+                     columns=['CamperID', 'AssignmentsReceived', 'StillNeeded']
+                     ).to_csv(path, index=False)
+
+
+def save_stats(campers: dict, hugim: dict, path: str) -> None:
+    total_slots = sum(len(d['assigned']) for d in campers.values())
+    full_campers = sum(1 for d in campers.values() if d['needs'] == 0)
+    stats = [
+        ['Total campers', len(campers)],
+        ['Total hugim', len(hugim)],
+        ['Total assigned slots', total_slots],
+        ['Campers fully assigned', full_campers],
+        ['Percent fully assigned', f'{full_campers/len(campers)*100:.1f}%']
+    ]
+    pd.DataFrame(stats, columns=['Stat', 'Value']).to_csv(path, index=False)
+
+# ----------------------------- MAIN ----------------------------
+
+def main() -> None:
+    print('Loading data …')
+    hugim   = load_hugim(HUGIM_DATA_FILE)
+    campers = load_campers(CAMPERS_DATA_FILE)
+    load_preferences(PREFERENCES_DATA_FILE, campers)
+
+    print('Running allocation …')
+    run_allocation(campers, hugim)
+
+    print('Saving results …')
+    save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
+    save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
+    save_stats(campers, hugim, OUTPUT_STATS_FILE)
+
+    # quick console summary
+    full = sum(1 for d in campers.values() if d['needs'] == 0)
+    print(f'✓ Done.  {full}/{len(campers)} campers got all '
+          f'{NUM_ASSIGNMENTS_TARGET} hugim.')
+
+if __name__ == '__main__':
+    main()
