@@ -12,7 +12,7 @@ from allocator import (
     OUTPUT_UNASSIGNED_FILE,
 )
 
-from data_helpers import find_missing, show_uploaded
+from data_helpers import find_missing, show_uploaded, validate_csv_headers
 
 def main():
     st.title("Hugim Allocation Web App")
@@ -38,17 +38,11 @@ def main():
     )
 
     if ready:
-        campers_headers = set(campers_df.columns)
-        hugim_headers = set(hugim_df.columns)
-        if not {'CamperID', 'Got1stChoiceLastWeek'}.issubset(campers_headers):
-            st.error("campers.csv must contain: CamperID, Got1stChoiceLastWeek")
+        ok, msg = validate_csv_headers(campers_df, hugim_df, prefs_df)
+        if not ok:
+            st.error(msg)
             return
-        if not {'HugName', 'Capacity'}.issubset(hugim_headers):
-            st.error("hugim.csv must contain: HugName, Capacity")
-            return
-        if 'CamperID' not in prefs_df.columns:
-            st.error("preferences.csv must contain a 'CamperID' column.")
-            return
+
         # Now check for missing campers/hugim in preferences
         missing_campers, missing_hugim = find_missing(prefs_df, campers_df, hugim_df)
         if missing_campers:
