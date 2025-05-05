@@ -65,7 +65,7 @@ def main():
             return
         if 'CamperID' not in prefs_df.columns:
             st.error("preferences.csv must contain a 'CamperID' column.")
-                       return
+            return
         # Now check for missing campers/hugim in preferences
         missing_campers, missing_hugim = find_missing(prefs_df, campers_df, hugim_df)
         if missing_campers:
