@@ -23,3 +23,19 @@ def show_uploaded(st, label, uploaded_file):
     except Exception as e:
         st.error(f"Could not read {label}: {e}")
         return None
+
+def validate_csv_headers(campers_df, hugim_df, prefs_df):
+    """
+    Checks that all input DataFrames have required columns.
+    Returns (ok:bool, error_message:str)
+    """
+    campers_headers = set(campers_df.columns)
+    hugim_headers = set(hugim_df.columns)
+    
+    if not {'CamperID', 'Got1stChoiceLastWeek'}.issubset(campers_headers):
+        return False, "campers.csv must contain: CamperID, Got1stChoiceLastWeek"
+    if not {'HugName', 'Capacity'}.issubset(hugim_headers):
+        return False, "hugim.csv must contain: HugName, Capacity"
+    if 'CamperID' not in prefs_df.columns:
+        return False, "preferences.csv must contain a 'CamperID' column."
+    return True, ""
