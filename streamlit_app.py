@@ -12,7 +12,19 @@ from allocator import (
     OUTPUT_UNASSIGNED_FILE,
 )
 
-def show_uploaded_df(label, uploaded_file):
+def find_missing(pref_df, campers_df, hugim_df):
+    campers_set = set(campers_df['CamperID'].astype(str).str.strip())
+    prefs_set   = set(pref_df['CamperID'].astype(str).str.strip())
+    missing_campers = sorted(prefs_set - campers_set)
+    hugim_set = set(hugim_df['HugName'].astype(str).str.strip())
+    pref_cols = [c for c in pref_df.columns if c.startswith("Pref")]
+    hug_names_in_prefs = set()
+    for c in pref_cols:
+        hug_names_in_prefs.update(pref_df[c].dropna().astype(str).str.strip())
+    missing_hugim = sorted(hug_names_in_prefs - hugim_set)
+    return missing_campers, missing_hugim
+
+def show_uploaded(label, uploaded_file):
     try:
         df = pd.read_csv(uploaded_file)
         st.write(f"**Preview of {label}:**")
@@ -27,45 +39,64 @@ def main():
     st.write("Upload your CSV files below (check the preview before running):")
 
     campers_file = st.file_uploader("Upload campers.csv", type=["csv"])
-    hugim_file   = st.file_uploader("Upload hugim.csv", type=["csv"])
-    pref_file    = st.file_uploader("Upload preferences.csv", type=["csv"])
+    hugim_file = st.file_uploader("Upload hugim.csv", type=["csv"])
+    prefs_file = st.file_uploader("Upload preferences.csv", type=["csv"])
 
     campers_df = hugim_df = prefs_df = None
+    missing_campers = missing_hugim = []
 
     if campers_file:
-        campers_df = show_uploaded_df("campers.csv", campers_file)
+        campers_df = show_uploaded("campers.csv", campers_file)
     if hugim_file:
-        hugim_df = show_uploaded_df("hugim.csv", hugim_file)
-    if pref_file:
-        prefs_df = show_uploaded_df("preferences.csv", pref_file)
+        hugim_df = show_uploaded("hugim.csv", hugim_file)
+    if prefs_file:
+        prefs_df = show_uploaded("preferences.csv", prefs_file)
 
-    ready = campers_file and hugim_file and pref_file and campers_df is not None and hugim_df is not None and prefs_df is not None
+    ready = campers_file and hugim_file and prefs_file and campers_df is not None and hugim_df is not None and prefs_df is not None
+
+    if ready:
+        campers_headers = set(campers_df.columns)
+        hugim_headers = set(hugim_df.columns)
+        if not {'CamperID', 'Got1stChoiceLastWeek'}.issubset(campers_headers):
+            st.error("campers.csv must contain: CamperID, Got1stChoiceLastWeek")
+            return
+        if not {'HugName', 'Capacity'}.issubset(hugim_headers):
+            st.error("hugim.csv must contain: HugName, Capacity")
+            return
+        if 'CamperID' not in prefs_df.columns:
+            st.error("preferences.csv must contain a 'CamperID' column.")
+                       return
+        # Now check for missing campers/hugim in preferences
+        missing_campers, missing_hugim = find_missing(prefs_df, campers_df, hugim_df)
+        if missing_campers:
+            st.warning(f"These CamperIDs are referenced in preferences.csv but missing from campers.csv and will be skipped:\n`{', '.join(missing_campers)}`")
+        if missing_hugim:
+            st.warning(f"These HugNames are referenced in preferences.csv but missing from hugim.csv and will be skipped:\n`{', '.join(missing_hugim)}`")
 
     if ready and st.button("Run Allocation"):
-        # Save uploaded files to disk
+        # Exclude rows with missing campers from prefs
+        valid_prefs_df = prefs_df[~prefs_df['CamperID'].astype(str).str.strip().isin(missing_campers)]
+        # Overwrite the file Streamlit gave us with a "cleaned" version
+        valid_prefs_df.to_csv("preferences.csv", index=False)
         campers_file.seek(0)
         hugim_file.seek(0)
-        pref_file.seek(0)
+        # Write the originals as received so they're consistent when loaded
         with open("campers.csv", "wb") as f:
             f.write(campers_file.read())
         with open("hugim.csv", "wb") as f:
             f.write(hugim_file.read())
-        with open("preferences.csv", "wb") as f:
-            f.write(pref_file.read())
 
-        # Now do everything in a try/except block and show more info!
         try:
             hug_data  = load_hugim("hugim.csv")
             camp_data = load_campers("campers.csv")
             load_preferences("preferences.csv", camp_data)
             st.info(f"Loaded {len(camp_data)} campers and {len(hug_data)} hugim.")
-
             run_allocation(camp_data, hug_data)
 
             # Show assignments output, if generated
             if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
                 df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-                st.subheader("Assignments")
+                st.subheader("Assignments Table")
                 st.dataframe(df_assignments)
                 st.download_button(
                     label="Download Assignments CSV",
@@ -74,13 +105,13 @@ def main():
                     mime="text/csv"
                 )
             else:
-                st.error("Assignments output was not generated. This usually means your input files have an error, typos in headers, or do not match. Please check the previews above and fix any typos. All IDs and names must match exactly. If you think there's a bug, contact the developer.")
+                st.error("Assignments output was not generated (allocation failed). See warnings above.")
                 return
 
             # Show statistics output, if generated
             if os.path.exists(OUTPUT_STATS_FILE) and os.path.getsize(OUTPUT_STATS_FILE) > 0:
                 df_stats = pd.read_csv(OUTPUT_STATS_FILE)
-                st.subheader("Statistics")
+                st.subheader("Statistics Table")
                 st.dataframe(df_stats)
                 st.download_button(
                     label="Download Stats CSV",
@@ -91,7 +122,7 @@ def main():
             else:
                 st.warning("No statistics generated.")
 
-            # Show unassigned output, if generated
+            # Show unassigned campers, if any
             if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
                 df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
                 st.subheader("Unassigned Campers")
@@ -105,8 +136,14 @@ def main():
             else:
                 st.success("All campers got their required number of Hugim! No one unassigned.")
 
+            # Summary of what was skipped
+            if missing_campers:
+                st.warning(f"Skipped `preferences.csv` rows for missing CamperIDs: {', '.join(missing_campers)}")
+            if missing_hugim:
+                st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
+
         except Exception as e:
-            st.error(f"An error occurred: {type(e).__name__}: {e}")
+            st.error(f"Error during allocation: {e}")
 
 if __name__ == "__main__":
     main()
