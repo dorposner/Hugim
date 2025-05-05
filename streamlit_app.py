@@ -14,7 +14,10 @@ OUTPUT_UNASSIGNED_FILE
 
 def main():
 st.title("Hugim Allocation Web App")
-st.write("Upload your CSV files below, then click 'Run Allocation'.")
+st.write("Upload your CSV files below...")
+# etc.
+if name == "main":
+main()
 
 campers_file = st.file_uploader("Upload campers.csv", type=["csv"])
 hugim_file   = st.file_uploader("Upload hugim.csv",   type=["csv"])
