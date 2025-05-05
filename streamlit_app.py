@@ -7,6 +7,9 @@ from allocator import (
     load_campers,
     load_preferences,
     run_allocation,
+    save_assignments,
+    save_unassigned,
+    save_stats,
     OUTPUT_ASSIGNMENTS_FILE,
     OUTPUT_STATS_FILE,
     OUTPUT_UNASSIGNED_FILE,
@@ -72,7 +75,13 @@ def main():
             camp_data = load_campers("campers.csv")
             load_preferences("preferences.csv", camp_data)
             st.info(f"Loaded {len(camp_data)} campers and {len(hug_data)} hugim.")
+
             run_allocation(camp_data, hug_data)
+
+            # NEW: Save output files so the web app finds them
+            save_assignments(camp_data, OUTPUT_ASSIGNMENTS_FILE)
+            save_unassigned(camp_data, OUTPUT_UNASSIGNED_FILE)
+            save_stats(camp_data, hug_data, OUTPUT_STATS_FILE)
 
             # Show assignments output, if generated
             if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
