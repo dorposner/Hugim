@@ -30,53 +30,42 @@ def main():
             with open("preferences.csv", "wb") as f:
                 f.write(pref_file.read())
 
-            # Run the core allocation logic
-            hug_data  = load_hugim("hugim.csv")
-            camp_data = load_campers("campers.csv")
-            load_preferences("preferences.csv", camp_data)
-            run_allocation(camp_data, hug_data)
+# Run the core allocation logic
+hug_data  = load_hugim("hugim.csv")
+camp_data = load_campers("campers.csv")
+load_preferences("preferences.csv", camp_data)
+run_allocation(camp_data, hug_data)
 
-            # Display results
-            st.subheader("Assignments")
-            if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
-                df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-                st.dataframe(df_assignments)
-            else:
-                st.error(f"{OUTPUT_ASSIGNMENTS_FILE} was not created – allocation may have failed. Please check your input files.")
+# === BEGIN SAFER SNIPPET ===
 
-            st.subheader("Statistics")
-            df_stats = pd.read_csv(OUTPUT_STATS_FILE)
-            st.dataframe(df_stats)
+# Show Assignments
+if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
+    df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
+    st.subheader("Assignments")
+    st.dataframe(df_assignments)
+    st.download_button("Download Assignments CSV", data=df_assignments.to_csv(index=False), file_name=OUTPUT_ASSIGNMENTS_FILE)
+else:
+    st.error("Assignments output was not generated. Please check your input files and try again.")
 
-            if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
-                st.subheader("Unassigned Campers")
-                df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
-                st.dataframe(df_unassigned)
-            else:
-                st.write("All campers got their required number of Hugim!")
+# Show Statistics
+if os.path.exists(OUTPUT_STATS_FILE) and os.path.getsize(OUTPUT_STATS_FILE) > 0:
+    df_stats = pd.read_csv(OUTPUT_STATS_FILE)
+    st.subheader("Statistics")
+    st.dataframe(df_stats)
+    st.download_button("Download Stats CSV", data=df_stats.to_csv(index=False), file_name=OUTPUT_STATS_FILE)
+else:
+    st.warning("No statistics generated.")
 
-            st.write("Download if desired:")
-            st.download_button(
-                label="Download Assignments CSV",
-                data=df_assignments.to_csv(index=False),
-                file_name=OUTPUT_ASSIGNMENTS_FILE,
-                mime="text/csv"
-            )
-            st.download_button(
-                label="Download Stats CSV",
-                data=df_stats.to_csv(index=False),
-                file_name=OUTPUT_STATS_FILE,
-                mime="text/csv"
-            )
-            if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
-                with open(OUTPUT_UNASSIGNED_FILE, "r") as f:
-                    unassigned_csv = f.read()
-                st.download_button(
-                    label="Download Unassigned Campers CSV",
-                    data=unassigned_csv,
-                    file_name=OUTPUT_UNASSIGNED_FILE,
-                    mime="text/csv"
-                )
+# Show Unassigned (optional)
+if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
+    df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
+    st.subheader("Unassigned Campers")
+    st.dataframe(df_unassigned)
+    st.download_button("Download Unassigned Campers CSV", data=df_unassigned.to_csv(index=False), file_name=OUTPUT_UNASSIGNED_FILE)
+else:
+    st.info("All campers got their required number of Hugim! No one unassigned.")
+
+# === END SAFER SNIPPET ===
 
 if __name__ == "__main__":
     main()
