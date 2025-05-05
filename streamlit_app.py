@@ -38,8 +38,11 @@ def main():
 
             # Display results
             st.subheader("Assignments")
-            df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-            st.dataframe(df_assignments)
+            if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
+                df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
+                st.dataframe(df_assignments)
+            else:
+                st.error(f"{OUTPUT_ASSIGNMENTS_FILE} was not created – allocation may have failed. Please check your input files.")
 
             st.subheader("Statistics")
             df_stats = pd.read_csv(OUTPUT_STATS_FILE)
