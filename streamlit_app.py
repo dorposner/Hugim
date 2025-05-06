@@ -15,11 +15,42 @@ from allocator import (
     OUTPUT_UNASSIGNED_FILE,
 )
 
-from data_helpers import find_missing, show_uploaded, validate_csv_headers
+from data_helpers import find_missing, show_uploaded, validate_csv_headers, to_csv_download
 
 def main():
     st.title("Hugim Allocation Web App")
-    st.write("Upload your CSV files below (check the preview before running):")
+
+    # 1. Instructions
+    with st.expander("📄 Click here for instructions on preparing your CSV files"):
+        st.markdown("""
+        #### campers.csv
+        - Must contain columns: **CamperID**, **Got1stChoiceLastWeek**
+        - Example:
+            | CamperID | Got1stChoiceLastWeek |
+            |----------|---------------------|
+            | 123      | Yes                 |
+            | 456      | No                  |
+
+        ---
+        #### hugim.csv
+        - Must contain columns: **HugName**, **Capacity**
+        - Example:
+            | HugName   | Capacity |
+            |-----------|----------|
+            | Sports    | 10       |
+            | Drama     | 15       |
+
+        ---
+        #### preferences.csv
+        - Must contain columns: **CamperID**, **Pref1**, ... (up to **Pref5**)
+        - Example:
+            | CamperID | Pref1   | Pref2 | Pref3 | Pref4 | Pref5 |
+            |----------|---------|-------|-------|-------|-------|
+            | 123      | Drama   | Art   | Music |       |       |
+            | 456      | Sports  | Drama |       |       |       |
+        """)
+
+    st.write("Upload your CSV files below (then you can preview and edit them before running allocation):")
 
     campers_file = st.file_uploader("Upload campers.csv", type=["csv"])
     hugim_file = st.file_uploader("Upload hugim.csv", type=["csv"])
@@ -28,17 +59,25 @@ def main():
     campers_df = hugim_df = prefs_df = None
     missing_campers = missing_hugim = []
 
+    # Preview AND allow edit
     if campers_file:
         campers_df = show_uploaded(st, "campers.csv", campers_file)
+        st.subheader("✏️ Edit campers.csv")
+        campers_df = st.data_editor(campers_df, num_rows="dynamic", key="edit_campers")
+        to_csv_download(campers_df, "campers_edited.csv", "campers.csv")
     if hugim_file:
         hugim_df = show_uploaded(st, "hugim.csv", hugim_file)
+        st.subheader("✏️ Edit hugim.csv")
+        hugim_df = st.data_editor(hugim_df, num_rows="dynamic", key="edit_hugim")
+        to_csv_download(hugim_df, "hugim_edited.csv", "hugim.csv")
     if prefs_file:
         prefs_df = show_uploaded(st, "preferences.csv", prefs_file)
+        st.subheader("✏️ Edit preferences.csv")
+        prefs_df = st.data_editor(prefs_df, num_rows="dynamic", key="edit_prefs")
+        to_csv_download(prefs_df, "preferences_edited.csv", "preferences.csv")
 
-    ready = (
-        campers_file and hugim_file and prefs_file and
-        campers_df is not None and hugim_df is not None and prefs_df is not None
-    )
+    # Main logic -- use edited DataFrames regardless of input!
+    ready = campers_df is not None and hugim_df is not None and prefs_df is not None
 
     if ready:
         ok, msg = validate_csv_headers(campers_df, hugim_df, prefs_df)
@@ -57,18 +96,13 @@ def main():
                 f"These HugNames are referenced in preferences.csv but missing from hugim.csv and will be skipped:\n`{', '.join(missing_hugim)}`"
             )
 
+    # Allow Run Allocation with the edited data only
     if ready and st.button("Run Allocation"):
         # Exclude rows with missing campers from prefs
         valid_prefs_df = prefs_df[~prefs_df['CamperID'].astype(str).str.strip().isin(missing_campers)]
-        # Overwrite the file Streamlit gave us with a "cleaned" version
+        campers_df.to_csv("campers.csv", index=False)
+        hugim_df.to_csv("hugim.csv", index=False)
         valid_prefs_df.to_csv("preferences.csv", index=False)
-        campers_file.seek(0)
-        hugim_file.seek(0)
-        # Write the originals as received so they're consistent when loaded
-        with open("campers.csv", "wb") as f:
-            f.write(campers_file.read())
-        with open("hugim.csv", "wb") as f:
-            f.write(hugim_file.read())
 
         try:
             hug_data = load_hugim("hugim.csv")
@@ -77,8 +111,6 @@ def main():
             st.info(f"Loaded {len(camp_data)} campers and {len(hug_data)} hugim.")
 
             run_allocation(camp_data, hug_data)
-
-            # NEW: Save output files so the web app finds them
             save_assignments(camp_data, OUTPUT_ASSIGNMENTS_FILE)
             save_unassigned(camp_data, OUTPUT_UNASSIGNED_FILE)
             save_stats(camp_data, hug_data, OUTPUT_STATS_FILE)
@@ -86,7 +118,7 @@ def main():
             # Show assignments output, if generated
             if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
                 df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-                st.subheader("Assignments Table")
+                st.subheader("📋 Assignments Table")
                 st.dataframe(df_assignments)
                 st.download_button(
                     label="Download Assignments CSV",
@@ -101,7 +133,7 @@ def main():
             # Show statistics output, if generated
             if os.path.exists(OUTPUT_STATS_FILE) and os.path.getsize(OUTPUT_STATS_FILE) > 0:
                 df_stats = pd.read_csv(OUTPUT_STATS_FILE)
-                st.subheader("Statistics Table")
+                st.subheader("📊 Statistics Table")
                 st.dataframe(df_stats)
                 st.download_button(
                     label="Download Stats CSV",
@@ -115,7 +147,7 @@ def main():
             # Show unassigned campers, if any
             if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
                 df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
-                st.subheader("Unassigned Campers")
+                st.subheader("❗ Unassigned Campers")
                 st.dataframe(df_unassigned)
                 st.download_button(
                     label="Download Unassigned Campers CSV",
