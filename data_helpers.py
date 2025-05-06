@@ -39,3 +39,8 @@ def validate_csv_headers(campers_df, hugim_df, prefs_df):
     if 'CamperID' not in prefs_df.columns:
         return False, "preferences.csv must contain a 'CamperID' column."
     return True, ""
+
+def to_csv_download(df, filename, label):
+    import streamlit as st
+    csv = df.to_csv(index=False)
+    st.download_button(f"Download edited {label}", csv, file_name=filename, mime="text/csv")
