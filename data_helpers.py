@@ -1,4 +1,5 @@
 import pandas as pd
+import streamlit as st
 
 def find_missing(pref_df, campers_df, hugim_df):
     campers_set = set(campers_df['CamperID'].astype(str).str.strip())
@@ -25,13 +26,8 @@ def show_uploaded(st, label, uploaded_file):
         return None
 
 def validate_csv_headers(campers_df, hugim_df, prefs_df):
-    """
-    Checks that all input DataFrames have required columns.
-    Returns (ok:bool, error_message:str)
-    """
     campers_headers = set(campers_df.columns)
     hugim_headers = set(hugim_df.columns)
-    
     if not {'CamperID', 'Got1stChoiceLastWeek'}.issubset(campers_headers):
         return False, "campers.csv must contain: CamperID, Got1stChoiceLastWeek"
     if not {'HugName', 'Capacity'}.issubset(hugim_headers):
@@ -41,6 +37,5 @@ def validate_csv_headers(campers_df, hugim_df, prefs_df):
     return True, ""
 
 def to_csv_download(df, filename, label):
-    import streamlit as st
     csv = df.to_csv(index=False)
     st.download_button(f"Download edited {label}", csv, file_name=filename, mime="text/csv")
