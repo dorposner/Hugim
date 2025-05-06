@@ -190,12 +190,42 @@ def save_unassigned(campers: dict, path: str) -> None:
 def save_stats(campers: dict, hugim: dict, path: str) -> None:
     total_slots = sum(len(d['assigned']) for d in campers.values())
     full_campers = sum(1 for d in campers.values() if d['needs'] == 0)
+    assignments_per_camper = [len(d['assigned']) for d in campers.values()]
+    min_assigned = min(assignments_per_camper) if assignments_per_camper else 0
+    max_assigned = max(assignments_per_camper) if assignments_per_camper else 0
+    avg_assigned = (
+        sum(assignments_per_camper) / len(assignments_per_camper)
+        if assignments_per_camper else 0
+    )
+
+    first_choice_count = 0
+    second_choice_count = 0
+    third_choice_count = 0
+    random_count = 0
+    for d in campers.values():
+        for h, how_assigned in d['assigned']:
+            if how_assigned == 'Pref_1':
+                first_choice_count += 1
+            elif how_assigned == 'Pref_2':
+                second_choice_count += 1
+            elif how_assigned == 'Pref_3':
+                third_choice_count += 1
+            elif how_assigned == 'Random':
+                random_count += 1
+
     stats = [
         ['Total campers', len(campers)],
         ['Total hugim', len(hugim)],
         ['Total assigned slots', total_slots],
         ['Campers fully assigned', full_campers],
-        ['Percent fully assigned', f'{full_campers/len(campers)*100:.1f}%']
+        ['Percent fully assigned', f'{full_campers/len(campers)*100:.1f}%'],
+        ['Average assignments per camper', f'{avg_assigned:.2f}'],
+        ['Minimum assignments to a camper', min_assigned],
+        ['Maximum assignments to a camper', max_assigned],
+        ['Assignments as 1st choice', first_choice_count],
+        ['Assignments as 2nd choice', second_choice_count],
+        ['Assignments as 3rd choice', third_choice_count],
+        ['Assignments by random fill', random_count],
     ]
     pd.DataFrame(stats, columns=['Stat', 'Value']).to_csv(path, index=False)
 
