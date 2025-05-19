@@ -206,6 +206,9 @@ def save_unassigned(campers: dict, path: str) -> None:
 
 
 def save_stats(campers: dict, hugim: dict, path: str) -> None:
+    import pandas as pd
+
+    # Key stats
     total_slots = sum(len(d['assigned']) for d in campers.values())
     full_campers = sum(1 for d in campers.values() if d['needs'] == 0)
     assignments_per_camper = [len(d['assigned']) for d in campers.values()]
@@ -220,7 +223,13 @@ def save_stats(campers: dict, hugim: dict, path: str) -> None:
     second_choice_count = 0
     third_choice_count = 0
     random_count = 0
+
+    # 1. Campers who got NO choices
+    campers_no_choices = 0
     for d in campers.values():
+        assigned_types = [how for _, how in d['assigned']]
+        if assigned_types and all(x == 'Random' for x in assigned_types):
+            campers_no_choices += 1
         for h, how_assigned in d['assigned']:
             if how_assigned == 'Pref_1':
                 first_choice_count += 1
@@ -244,8 +253,59 @@ def save_stats(campers: dict, hugim: dict, path: str) -> None:
         ['Assignments as 2nd choice', second_choice_count],
         ['Assignments as 3rd choice', third_choice_count],
         ['Assignments by random fill', random_count],
+        ['Campers who got NONE of their preferences', campers_no_choices],
     ]
-    pd.DataFrame(stats, columns=['Stat', 'Value']).to_csv(path, index=False)
+
+    # 2. Hugim not full/empty stats and per-Hug table
+    per_hug_rows = []
+    not_full = 0
+    empty = 0
+
+    # Collect preference requests: {hug: set of camper IDs who requested it}
+    requests = {hug: set() for hug in hugim}
+    for cdata in campers.values():
+        for pref in cdata['preferences']:
+            if pref in requests:
+                requests[pref].add(cdata.get('id', None))  # fill this with ID if available
+    # Use fallback for id field
+    for cid, cdata in campers.items():
+        for pref in cdata['preferences']:
+            if pref in requests:
+                requests[pref].add(cid)
+
+    for hug, info in hugim.items():
+        allocated = len(info['enrolled'])
+        capacity = info['capacity']
+        requested = len(requests[hug])
+        free = capacity - allocated
+        status = "Full" if allocated == capacity else ("Empty" if allocated == 0 else "Not full")
+        if allocated == 0:
+            empty += 1
+        if allocated < capacity:
+            not_full += 1
+        per_hug_rows.append([
+            hug,
+            allocated,
+            requested,
+            free,
+            capacity,
+            status
+        ])
+
+    stats += [
+        ['Hugim not full', not_full],
+        ['Empty hugim', empty],
+        ['-- Hugim Allocation Details --', ''],
+        ['HugName', 'Allocated', 'Requested', 'Free Spots', 'Capacity', 'Status']
+    ]
+    # Save both as ONE csv (stats + blank + per-hug table)
+    stats_df = pd.DataFrame(stats, columns=['Stat', 'Value'])
+    per_hug_df = pd.DataFrame(per_hug_rows, columns=['HugName', 'Allocated', 'Requested', 'Free Spots', 'Capacity', 'Status'])
+    # concat as single file (stats, blank line, per-hug table)
+    with open(path, 'w', encoding='utf-8') as f:
+        stats_df.to_csv(f, index=False)
+        f.write('\n')  # blank line
+        per_hug_df.to_csv(f, index=False)
 
 # ----------------------------- MAIN ----------------------------
 
