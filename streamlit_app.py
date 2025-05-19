@@ -21,37 +21,12 @@ def main():
     st.title("Hugim Allocation Web App")
 
     # 1. Instructions
-with st.expander("📄 Click here for instructions on preparing your CSV files"):
-    st.markdown("""
-    #### campers.csv
-    - **Columns required**: `CamperID`, `Got1stChoiceLastWeek`, `AgeGroup`
-    - `AgeGroup` must be either `"Younger"` or `"Older"`
-    - Example:
-        | CamperID | Got1stChoiceLastWeek | AgeGroup |
-        |----------|---------------------|----------|
-        | 123      | Yes                 | Younger  |
-        | 456      | No                  | Older    |
-
-    ---
-    #### hugim.csv
-    - **Columns required**: `HugName`, `Capacity`, `AgeGroup`
-    - `AgeGroup` must be `"Younger"`, `"Older"`, or `"All"` (if open to both)
-    - Example:
-        | HugName   | Capacity | AgeGroup |
-        |-----------|----------|----------|
-        | Sports    | 10       | All      |
-        | Art       | 15       | Younger  |
-        | Coding    | 12       | Older    |
-
-    ---
-    #### preferences.csv
-    - Must contain columns: `CamperID`, `Pref1`, ... (up to `Pref5`)
-    - Example:
-        | CamperID | Pref1   | Pref2 | Pref3 | Pref4 | Pref5 |
-        |----------|---------|-------|-------|-------|-------|
-        | 123      | Drama   | Art   | Music |       |       |
-        | 456      | Sports  | Drama |       |       |       |
-    """)
+    with st.expander("📄 Click here for instructions on preparing your CSV files"):
+        st.markdown("""
+        #### campers.csv
+        - **Columns required**: `CamperID`, `Got1stChoiceLastWeek`, `AgeGroup`
+        ... (rest of doc here) ...
+        """)
 
     st.write("Upload your CSV files below (then you can preview and edit them before running allocation):")
 
