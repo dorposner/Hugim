@@ -34,14 +34,14 @@ random.seed(RANDOM_SEED)
 
 def load_hugim(path: str) -> dict:
     """
-    Returns {hug_name: {'capacity': int, 'enrolled': set()}}
+    Returns {hug_name: {'capacity': int, 'enrolled': set(), 'age_group': str}}
     """
     if not os.path.exists(path):
         raise FileNotFoundError(f'Hugim file not found: {path}')
 
     df = pd.read_csv(path)
-    if 'HugName' not in df.columns or 'Capacity' not in df.columns:
-        df.columns = ['HugName', 'Capacity']   # fallback header
+    if 'HugName' not in df.columns or 'Capacity' not in df.columns or 'AgeGroup' not in df.columns:
+        df.columns = ['HugName', 'Capacity', 'AgeGroup']   # fallback header
 
     hugim = {}
     for _, row in df.iterrows():
@@ -52,7 +52,12 @@ def load_hugim(path: str) -> dict:
             cap = int(row['Capacity'])
         except ValueError:
             continue
-        hugim[name] = dict(capacity=cap, enrolled=set())
+        age_group = str(row['AgeGroup']).strip().capitalize()  # "Younger", "Older", or "All"
+        hugim[name] = dict(
+            capacity=cap,
+            enrolled=set(),
+            age_group=age_group
+        )
     return hugim
 
 
