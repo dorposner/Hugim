@@ -139,7 +139,7 @@ def main():
                 return
 
             # Show statistics output, if generated
-            if os.path.exists(OUTPUT_STATS_FILE) and os.path.getsize(OUTPUT_STATS_FILE) > 0:
+            if os.path.exists(OUTPUT_STATS_FILE):
                 df_stats = pd.read_csv(OUTPUT_STATS_FILE)
                 st.subheader("📊 Statistics Table")
                 st.dataframe(df_stats)
@@ -149,7 +149,18 @@ def main():
                     file_name=OUTPUT_STATS_FILE,
                     mime="text/csv"
                 )
-            else:
+                hugim_stats_path = OUTPUT_STATS_FILE.replace('.csv', '_hugim.csv')
+                if os.path.exists(hugim_stats_path):
+                    df_hugim_stats = pd.read_csv(hugim_stats_path)
+                    st.subheader("📈 Hugim Details Table")
+                    st.dataframe(df_hugim_stats)
+                    st.download_button(
+                        label="Download Hugim Details CSV",
+                        data=df_hugim_stats.to_csv(index=False),
+                        file_name="hugim_stats.csv",
+                        mime="text/csv"
+                )
+             else:
                 st.warning("No statistics generated.")
 
             # Show unassigned campers, if any
