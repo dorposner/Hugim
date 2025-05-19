@@ -79,11 +79,18 @@ def main():
     # Main logic -- use edited DataFrames regardless of input!
     ready = campers_df is not None and hugim_df is not None and prefs_df is not None
 
-    if ready:
-        ok, msg = validate_csv_headers(campers_df, hugim_df, prefs_df)
-        if not ok:
-            st.error(msg)
-            return
+if ready:
+    # 1. Check required columns
+    ok, msg = validate_csv_headers(campers_df, hugim_df, prefs_df)
+    if not ok:
+        st.error(msg)
+        return
+
+    # 2. Check AgeGroup values
+    is_valid, msg = validate_age_groups(campers_df, hugim_df)
+    if not is_valid:
+        st.error(msg)
+        return
 
         # Now check for missing campers/hugim in preferences
         missing_campers, missing_hugim = find_missing(prefs_df, campers_df, hugim_df)
