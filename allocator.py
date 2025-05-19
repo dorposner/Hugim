@@ -59,14 +59,14 @@ def load_hugim(path: str) -> dict:
 def load_campers(path: str) -> dict:
     """
     Returns {camper_id: {'missed_first': bool, 'needs': 3,
-                         'assigned': [], 'preferences': []}}
+                         'assigned': [], 'preferences': [], 'age_group': str}}
     """
     if not os.path.exists(path):
         raise FileNotFoundError(f'Campers file not found: {path}')
 
     df = pd.read_csv(path)
-    if 'CamperID' not in df.columns or 'Got1stChoiceLastWeek' not in df.columns:
-        df.columns = ['CamperID', 'Got1stChoiceLastWeek']
+    if 'CamperID' not in df.columns or 'Got1stChoiceLastWeek' not in df.columns or 'AgeGroup' not in df.columns:
+        df.columns = ['CamperID', 'Got1stChoiceLastWeek', 'AgeGroup']
 
     campers = {}
     for _, row in df.iterrows():
@@ -74,11 +74,13 @@ def load_campers(path: str) -> dict:
         if not cid:
             continue
         missed = str(row['Got1stChoiceLastWeek']).strip().upper() != 'YES'
+        age_group = str(row['AgeGroup']).strip().capitalize()  # "Younger" or "Older"
         campers[cid] = dict(
             missed_first=missed,
             needs=NUM_ASSIGNMENTS_TARGET,
             assigned=[],
-            preferences=[]
+            preferences=[],
+            age_group=age_group
         )
     return campers
 
