@@ -25,13 +25,22 @@ def show_uploaded(st, label, uploaded_file):
         st.error(f"Could not read {label}: {e}")
         return None
 
+def validate_age_groups(campers_df, hugim_df):
+    campers_valid = set(campers_df["AgeGroup"].dropna().str.capitalize())
+    if not campers_valid.issubset({"Younger", "Older"}):
+        return False, "campers.csv AgeGroup must be 'Younger' or 'Older' only."
+    hugim_valid = set(hugim_df["AgeGroup"].dropna().str.capitalize())
+    if not hugim_valid.issubset({"Younger", "Older", "All"}):
+        return False, "hugim.csv AgeGroup must be 'Younger', 'Older', or 'All' only."
+    return True, ""
+
 def validate_csv_headers(campers_df, hugim_df, prefs_df):
     campers_headers = set(campers_df.columns)
     hugim_headers = set(hugim_df.columns)
-    if not {'CamperID', 'Got1stChoiceLastWeek'}.issubset(campers_headers):
-        return False, "campers.csv must contain: CamperID, Got1stChoiceLastWeek"
-    if not {'HugName', 'Capacity'}.issubset(hugim_headers):
-        return False, "hugim.csv must contain: HugName, Capacity"
+    if not {'CamperID', 'Got1stChoiceLastWeek', 'AgeGroup'}.issubset(campers_headers):
+        return False, "campers.csv must contain: CamperID, Got1stChoiceLastWeek, AgeGroup"
+    if not {'HugName', 'Capacity', 'AgeGroup'}.issubset(hugim_headers):
+        return False, "hugim.csv must contain: HugName, Capacity, AgeGroup"
     if 'CamperID' not in prefs_df.columns:
         return False, "preferences.csv must contain a 'CamperID' column."
     return True, ""
