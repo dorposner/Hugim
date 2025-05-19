@@ -263,11 +263,6 @@ def save_stats(campers: dict, hugim: dict, path: str) -> None:
 
     # Collect preference requests: {hug: set of camper IDs who requested it}
     requests = {hug: set() for hug in hugim}
-    for cdata in campers.values():
-        for pref in cdata['preferences']:
-            if pref in requests:
-                requests[pref].add(cdata.get('id', None))  # fill this with ID if available
-    # Use fallback for id field
     for cid, cdata in campers.items():
         for pref in cdata['preferences']:
             if pref in requests:
@@ -292,20 +287,25 @@ def save_stats(campers: dict, hugim: dict, path: str) -> None:
             status
         ])
 
+    # Now add the new stats to the main stats table
     stats += [
         ['Hugim not full', not_full],
         ['Empty hugim', empty],
-        ['-- Hugim Allocation Details --', ''],
-        ['HugName', 'Allocated', 'Requested', 'Free Spots', 'Capacity', 'Status']
     ]
-    # Save both as ONE csv (stats + blank + per-hug table)
+
+    # Write two CSVs (recommended), or write stats then per-hug breakdown to the same file (not a real CSV, but demo):
     stats_df = pd.DataFrame(stats, columns=['Stat', 'Value'])
     per_hug_df = pd.DataFrame(per_hug_rows, columns=['HugName', 'Allocated', 'Requested', 'Free Spots', 'Capacity', 'Status'])
-    # concat as single file (stats, blank line, per-hug table)
-    with open(path, 'w', encoding='utf-8') as f:
-        stats_df.to_csv(f, index=False)
-        f.write('\n')  # blank line
-        per_hug_df.to_csv(f, index=False)
+
+    # Option 1: Save as two files:
+    stats_df.to_csv(path, index=False)
+    per_hug_df.to_csv(path.replace('.csv', '_hugim.csv'), index=False)
+
+    # Option 2: Or (less recommended) save both in the same file, with a blank line in between for manual reading:
+    # with open(path, 'w', encoding='utf-8') as f:
+    #     stats_df.to_csv(f, index=False)
+    #     f.write('\n')
+    #     per_hug_df.to_csv(f, index=False)
 
 # ----------------------------- MAIN ----------------------------
 
