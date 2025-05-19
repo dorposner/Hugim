@@ -160,8 +160,8 @@ def main():
                         file_name="hugim_stats.csv",
                         mime="text/csv"
                 )
-             else:
-                st.warning("No statistics generated.")
+                else:
+                   st.warning("No statistics generated.")
 
             # Show unassigned campers, if any
             if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
