@@ -15,7 +15,7 @@ from allocator import (
     OUTPUT_UNASSIGNED_FILE,
 )
 
-from data_helpers import find_missing, show_uploaded, validate_csv_headers, to_csv_download
+from data_helpers import find_missing, show_uploaded, validate_csv_headers, validate_age_groups, to_csv_download
 
 def main():
     st.title("Hugim Allocation Web App")
