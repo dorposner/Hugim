@@ -117,7 +117,8 @@ def load_preferences(path: str, campers: dict) -> None:
 # --------------------- ALLOCATION ENGINE -----------------------
 
 def preference_round(campers: dict, hugim: dict, pref_idx: int) -> None:
-    """One pass: everyone’s N-th choice."""
+    """One pass: everyone’s N-th choice, considering age group compatibility."""
+    from collections import defaultdict
     applicants = defaultdict(list)  # {hug: [camper_id]}
     for cid, data in campers.items():
         if data['needs'] == 0:
@@ -128,6 +129,11 @@ def preference_round(campers: dict, hugim: dict, pref_idx: int) -> None:
         if hug not in hugim:
             continue
         if hug in [h for h, _ in data['assigned']]:
+            continue
+        # Age group check!
+        camper_age = data['age_group']
+        hug_age = hugim[hug]['age_group']
+        if hug_age != "All" and hug_age != camper_age:
             continue
         applicants[hug].append(cid)
 
@@ -159,6 +165,11 @@ def random_fill(campers: dict, hugim: dict) -> None:
             hug = seats[seat_idx]
             seat_idx += 1
             if hug in [h for h, _ in data['assigned']]:
+                continue
+            # Age group check!
+            camper_age = data['age_group']
+            hug_age = hugim[hug]['age_group']
+            if hug_age != "All" and hug_age != camper_age:
                 continue
             campers[cid]['assigned'].append((hug, 'Random'))
             campers[cid]['needs'] -= 1
