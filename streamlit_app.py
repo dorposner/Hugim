@@ -17,46 +17,32 @@ from allocator import (
 from data_helpers import (
     find_missing,
     show_uploaded,
-    validate_csv_headers,
     to_csv_download
 )
 
 def main():
-    st.title("Hugim Allocation Web App (New Version)")
+    st.title("Hugim Allocation Web App (Flexible Headers Version)")
 
-    # 1. Instructions
-    with st.expander("📄 Click here for instructions on preparing your CSV files"):
+    with st.expander("📄 Click here for instructions (ignore column names if using your own):"):
         st.markdown("""
-    #### hugim.csv
-    - **Columns required**: `HugName`, `Capacity`, `Aleph`, `Beth`, `Gimmel`
-    - Each of Aleph/Beth/Gimmel should be 1 (activity offered at this time) or 0 (not offered at this time)
-    - Example:
-        | HugName   | Capacity | Aleph | Beth | Gimmel |
-        |-----------|----------|-------|------|--------|
-        | Sports    | 12       | 1     | 0    | 1      |
-        | Art       | 10       | 1     | 1    | 1      |
-        | Chess     | 8        | 0     | 1    | 0      |
+    For `hugim.csv`, you must have:
+    - Activity column (name of hug)
+    - Capacity column (how many can join)
+    - Columns indicating in which periods (Aleph, Beth, Gimmel...) each hug is offered (should be 1/0 or TRUE/FALSE)
 
-    ---
-    #### preferences.csv
-    - One row per camper. Columns: `CamperID`, `Aleph_1`..`Aleph_5`, `Beth_1`..`Beth_5`, `Gimmel_1`..`Gimmel_5`
-    - Example:
-        | CamperID | Aleph_1 | Aleph_2 | Aleph_3 | Aleph_4 | Aleph_5 | Beth_1 | ... | Gimmel_5 |
-        |----------|---------|---------|---------|---------|---------|--------|-----|----------|
-        | 123      | Art     | Soccer  | Chess   | Drama   | Dance   | Chess  | ... | Art      |
-    - For each time (Aleph, Beth, Gimmel), camper lists 5 ordered preferences.
+    For `preferences.csv`, you must have:
+    - Unique camper ID column
+    - Preference columns for each period (such as Aleph_1, Aleph_2, ..., Gimmel_5)
     """)
 
-    st.write("Upload your CSV files below (then you can preview and edit them before running allocation):")
+    st.write("Upload your CSV files below. You can preview and edit before running allocation:")
 
-    hugim_file = st.file_uploader("Upload hugim.csv (activities, times, capacities)", type=["csv"])
-    prefs_file = st.file_uploader("Upload preferences.csv (5 choices per time, per camper)", type=["csv"])
+    hugim_file = st.file_uploader("Upload hugim.csv", type=["csv"])
+    prefs_file = st.file_uploader("Upload preferences.csv", type=["csv"])
 
     hugim_df = prefs_df = None
-    missing_campers = []
-    missing_hugim = []
 
-    # Preview AND allow edit
+    # Preview/edit both files
     if hugim_file:
         hugim_df = show_uploaded(st, "hugim.csv", hugim_file)
         st.subheader("✏️ Edit hugim.csv")
@@ -68,40 +54,82 @@ def main():
         prefs_df = st.data_editor(prefs_df, num_rows="dynamic", key="edit_prefs")
         to_csv_download(prefs_df, "preferences_edited.csv", "preferences.csv")
 
-    # Main logic -- use edited DataFrames regardless of input!
     ready = hugim_df is not None and prefs_df is not None
 
+    # ---- FLEXIBLE MAPPINGS UI ----
+    hugim_mapping, prefs_mapping = {}, {}
     if ready:
-        ok, msg = validate_csv_headers(hugim_df, prefs_df)
-        if not ok:
-            st.error(msg)
-            return
+        st.markdown("## 1. Match your columns")
 
-        # Now check for missing hugim in preferences
-        missing_hugim = find_missing(prefs_df, None, hugim_df)  # campers_df=None
+        # Hugim mapping
+        hugim_cols = list(hugim_df.columns)
+        hugname_col = st.selectbox("Column for Hug Name (activity name):", hugim_cols, key="hugname")
+        cap_col = st.selectbox("Column for Capacity:", hugim_cols, key="capacity")
+        period_cols = st.multiselect(
+            "Columns for periods (choose 3, e.g. Aleph, Beth, Gimmel):",
+            hugim_cols,
+            default=[col for col in hugim_cols if col.lower() in ["aleph", "beth", "gimmel"]]
+        )
+        hugim_mapping = {
+            "HugName": hugname_col,
+            "Capacity": cap_col,
+            "Periods": period_cols
+        }
+
+        # Preferences mapping
+        pref_cols = list(prefs_df.columns)
+        camperid_col = st.selectbox("Column for Camper ID:", pref_cols, key="camperid")
+        # Detect all possible period prefixes among columns with "_"
+        period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
+        st.write("Match your periods:")
+        period_map = {}
+        for period in period_cols:
+            auto = [p for p in period_prefixes if p.lower() == period.lower()]
+            value = st.selectbox(
+                f"Prefix in preferences.csv for period '{period}':",
+                sorted(period_prefixes),
+                index=sorted(period_prefixes).index(auto[0]) if auto else 0,
+                key=f"pref_prefix_{period}"
+            )
+            period_map[period] = value
+        prefs_mapping = {
+            "CamperID": camperid_col,
+            "PeriodPrefixes": period_map
+        }
+
+        st.info(f"Hugim mapping: {hugim_mapping}")
+        st.info(f"Preferences mapping: {prefs_mapping}")
+
+    # ---------- Missing Hugim Check ---------
+    if ready:
+        # Build dynamic pref column list based on mapping
+        pref_period_cols = []
+        for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
+            pref_period_cols.extend([col for col in prefs_df.columns if col.startswith(prefix + "_")])
+        missing_hugim = find_missing(prefs_df[pref_period_cols], hugim_df[[hugim_mapping["HugName"]]])
         if missing_hugim:
             st.warning(
                 f"These HugNames are referenced in preferences.csv but missing from hugim.csv and will be skipped:\n`{', '.join(missing_hugim)}`"
             )
 
-    # Allow Run Allocation with the edited data only
+    # ------- Allocation Button & Handling -------
     if ready and st.button("Run Allocation"):
-        # Write local CSVs to disk for the allocator module
-        hugim_df.to_csv("hugim.csv", index=False)
-        prefs_df.to_csv("preferences.csv", index=False)
+        # Save the mapped/edited files in standard names, using ONLY the columns the user mapped!
+        mapped_hugim = hugim_df[[hugim_mapping["HugName"], hugim_mapping["Capacity"]] + list(hugim_mapping["Periods"])]
+        mapped_hugim.to_csv("hugim.csv", index=False)
+        mapped_prefs = prefs_df.copy()
+        mapped_prefs.to_csv("preferences.csv", index=False)
 
         try:
-            hug_data = load_hugim("hugim.csv")
-            campers = load_preferences("preferences.csv")  # campers is a dict or list of campers w/ preferences
-
-            st.info(f"Loaded {len(campers)} campers and {len(hug_data)} hugim.")
+            hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
+            campers = load_preferences("preferences.csv", mapping=prefs_mapping)
+            st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
 
             run_allocation(campers, hug_data)
             save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
             save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
             save_stats(campers, hug_data, OUTPUT_STATS_FILE)
 
-            # Show assignments output, if generated
             if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
                 df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
                 st.subheader("📋 Assignments Table")
@@ -116,7 +144,6 @@ def main():
                 st.error("Assignments output was not generated (allocation failed). See warnings above.")
                 return
 
-            # Show statistics output, if generated
             if os.path.exists(OUTPUT_STATS_FILE):
                 df_stats = pd.read_csv(OUTPUT_STATS_FILE)
                 st.subheader("📊 Statistics Table")
@@ -130,7 +157,6 @@ def main():
             else:
                 st.warning("No statistics generated.")
 
-            # Show unassigned campers, if any
             if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
                 df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
                 st.subheader("❗ Unassigned Campers")
@@ -146,7 +172,6 @@ def main():
 
             if missing_hugim:
                 st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
-
         except Exception as e:
             st.error(f"Error during allocation: {e}")
 
