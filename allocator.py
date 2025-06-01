@@ -1,10 +1,3 @@
-Here's how you can make **allocator.py** use fully flexible mappings passed in from your Streamlit app.  
-You'll need to update `load_hugim` and `load_preferences` to accept and use the mapping dictionaries.  
-I'll show the changes and add a comment where new arguments are used.
-
----
-
-```python
 import os
 import random
 from collections import defaultdict
