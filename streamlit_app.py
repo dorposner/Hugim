@@ -105,7 +105,8 @@ def main():
         # Build dynamic pref column list based on mapping
         pref_period_cols = []
         for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
-            pref_period_cols.extend([col for col in prefs_df.columns if col.startswith(prefix + "_")])
+        prefix_str = str(prefix)
+        pref_period_cols.extend([col for col in prefs_df.columns if col.startswith(prefix_str + "_")])
         missing_hugim = find_missing(prefs_df[pref_period_cols], hugim_df[[hugim_mapping["HugName"]]])
         if missing_hugim:
             st.warning(
