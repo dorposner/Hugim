@@ -1,20 +1,15 @@
 import pandas as pd
 import streamlit as st
 
-PERIODS = ["Aleph", "Beth", "Gimmel"]
-PREFERENCES_PER_PERIOD = 5
-
 def find_missing(pref_df, hugim_df):
-    # Check hug names referenced in any preferences columns for all periods
+    # Find hugim mentioned in any preference but missing from hugim list
     hugim_set = set(hugim_df['HugName'].astype(str).str.strip())
+    pref_cols = [c for c in pref_df.columns if any(c.startswith(f"{period}_") for period in ["Aleph", "Beth", "Gimmel"])]
     hug_names_in_prefs = set()
-    for period in PERIODS:
-        for i in range(1, PREFERENCES_PER_PERIOD + 1):
-            col = f"{period}_{i}"
-            if col in pref_df.columns:
-                hug_names_in_prefs.update(pref_df[col].dropna().astype(str).str.strip())
+    for c in pref_cols:
+        hug_names_in_prefs.update(pref_df[c].dropna().astype(str).str.strip())
     missing_hugim = sorted(hug_names_in_prefs - hugim_set)
-    return missing_hugim   # campers are never missing in new approach
+    return missing_hugim
 
 def show_uploaded(st, label, uploaded_file):
     try:
@@ -27,16 +22,13 @@ def show_uploaded(st, label, uploaded_file):
         return None
 
 def validate_csv_headers(hugim_df, prefs_df):
-    hugim_headers = set(hugim_df.columns)
-    # Must have HugName, Capacity, Aleph, Beth, Gimmel
-    if not {'HugName', 'Capacity', 'Aleph', 'Beth', 'Gimmel'}.issubset(hugim_headers):
+    if not {'HugName', 'Capacity', 'Aleph', 'Beth', 'Gimmel'}.issubset(hugim_df.columns):
         return False, "hugim.csv must contain: HugName, Capacity, Aleph, Beth, Gimmel"
-    # preferences.csv: must have CamperID and at least Aleph_1, Beth_1, Gimmel_1
     if 'CamperID' not in prefs_df.columns:
         return False, "preferences.csv must contain a 'CamperID' column."
-    for period in PERIODS:
-        if f"{period}_1" not in prefs_df.columns:
-            return False, f"preferences.csv must have '{period}_1' column."
+    expected_pref_cols = [f"{period}_{i}" for period in ["Aleph", "Beth", "Gimmel"] for i in range(1,6)]
+    if not any(col in prefs_df.columns for col in expected_pref_cols):
+        return False, "preferences.csv must contain preference columns like Aleph_1,...,Beth_5,Gimmel_5."
     return True, ""
 
 def to_csv_download(df, filename, label):
