@@ -134,6 +134,7 @@ def main():
             if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
                 df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
                 st.subheader("📋 Assignments Table")
+                df.index = df.index + 1
                 st.dataframe(df_assignments)
                 st.download_button(
                     label="Download Assignments CSV",
