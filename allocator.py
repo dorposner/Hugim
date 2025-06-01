@@ -1,25 +1,3 @@
-Great! Here’s a plan, followed by a **refactored version** of your `allocator.py` for your new system:
-
----
-
-## **allocator.py changes required**
-1. **Remove all age group logic (and ‘campers.csv’ usage).**
-2. **Input will ONLY be:**
-    - `hugim.csv` (containing per-period availability)
-    - `preferences.csv` (5 ranked choices for each time period per camper: Aleph, Beth, Gimmel)
-3. **Each Hug can run at Aleph, Beth, or Gimmel, possibly more than one period.**
-4. **For each camper, assign ONE Hug per period (so 3 assignments/camper, one per timeslot).**
-5. **Try to assign each camper each period to their top-3 preference for that period, subject to capacity.**
-6. **Reporting/output should be per camper and per time period.**
-
----
-
-Below is a **revised, self-contained `allocator.py`** with these requirements.  
-**(You may need to update your helpers to match these interfaces!)**
-
----
-
-```python
 import os
 import random
 from collections import defaultdict
