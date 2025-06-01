@@ -149,6 +149,7 @@ def main():
             if os.path.exists(OUTPUT_STATS_FILE):
                 df_stats = pd.read_csv(OUTPUT_STATS_FILE)
                 st.subheader("📊 Statistics Table")
+                df_stats.index = df_stats.index + 1
                 st.dataframe(df_stats)
                 st.download_button(
                     label="Download Stats CSV",
@@ -162,6 +163,7 @@ def main():
             if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
                 df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
                 st.subheader("❗ Unassigned Campers")
+                df_unassigned.index = df_unassigned.index + 1
                 st.dataframe(df_unassigned)
                 st.download_button(
                     label="Download Unassigned Campers CSV",
