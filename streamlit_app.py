@@ -72,7 +72,7 @@ def main():
     ready = hugim_df is not None and prefs_df is not None
 
     if ready:
-        ok, msg = validate_csv_headers(None, hugim_df, prefs_df)  # campers_df is now always None
+        ok, msg = validate_csv_headers(hugim_df, prefs_df)
         if not ok:
             st.error(msg)
             return
