@@ -1,89 +1,102 @@
+Here's how you can make **allocator.py** use fully flexible mappings passed in from your Streamlit app.  
+You'll need to update `load_hugim` and `load_preferences` to accept and use the mapping dictionaries.  
+I'll show the changes and add a comment where new arguments are used.
+
+---
+
+```python
 import os
 import random
 from collections import defaultdict
 import pandas as pd
 
-# ------------- CONFIG -------------
-PERIODS = ['Aleph', 'Beth', 'Gimmel']
-NUM_PERIODS = len(PERIODS)
-PREFERENCES_PER_PERIOD = 5      # How many preferred choices per camper for each period
-ASSIGNMENTS_PER_CAMPER = NUM_PERIODS  # Camper needs 1 hug per period
+# ---------- These no longer NEED to be hardcoded! ---------
+PERIODS = None
+PREFERENCES_PER_PERIOD = 5
 
-HUGIM_DATA_FILE        = 'hugim.csv'
-PREFERENCES_DATA_FILE  = 'preferences.csv'
+HUGIM_DATA_FILE = 'hugim.csv'
+PREFERENCES_DATA_FILE = 'preferences.csv'
 
 OUTPUT_ASSIGNMENTS_FILE = 'assignments_output.csv'
-OUTPUT_STATS_FILE       = 'stats_output.csv'
-OUTPUT_UNASSIGNED_FILE  = 'unassigned_campers_output.csv'
+OUTPUT_STATS_FILE = 'stats_output.csv'
+OUTPUT_UNASSIGNED_FILE = 'unassigned_campers_output.csv'
 
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
 
-# ------------- DATA LOADERS ----------------
+# ------------- FLEXIBLE DATA LOADERS ----------------
 
-def load_hugim(path: str):
+def load_hugim(path: str, mapping: dict):
     """
     Returns: dict of form:
     {period: {hug_name: {'capacity': int, 'enrolled': set()}}}
+    mapping: {"HugName": ..., "Capacity": ..., "Periods": [period column 1, ...]}
     """
-    if not os.path.exists(path):
-        raise FileNotFoundError(f'Hugim file not found: {path}')
-
     df = pd.read_csv(path)
-    for col in ['HugName', 'Capacity']:
-        if col not in df.columns:
-            raise ValueError(f"Missing {col} in hugim.csv")
-
-    # For each period, which hugim are possible & what's their capacity
-    hugim = {period: {} for period in PERIODS}
+    periods = mapping["Periods"]
+    hugim = {period: {} for period in periods}
     for _, row in df.iterrows():
-        name = str(row['HugName']).strip()
-        cap = int(row['Capacity'])
-        for period in PERIODS:
-            if period in row and int(row[period]) == 1:
+        name = str(row[mapping["HugName"]]).strip()
+        cap = int(row[mapping["Capacity"]])
+        for period in periods:
+            # Accept 1/True/yes
+            value = row[period]
+            offered = False
+            try:
+                if str(value).lower() in {'1', 'true', 'yes'}:
+                    offered = True
+                elif isinstance(value, (int, float)) and value > 0:
+                    offered = True
+            except:
+                pass
+            if offered:
                 hugim[period][name] = {'capacity': cap, 'enrolled': set()}
     return hugim  # dict: period -> {hug_name: {capacity, enrolled}}
 
-def load_preferences(path: str):
+def load_preferences(path: str, mapping: dict):
     """
-    Returns: list of { 'CamperID': str, 'preferences': {period: [h1, h2, ... h5]} }
+    Returns: list of { 'CamperID': str, 'preferences': {period: [h1, h2, ...]}, ... }
+    mapping: {"CamperID": ..., "PeriodPrefixes": {period_col: prefix_in_preferences_file}}
     """
-    if not os.path.exists(path):
-        raise FileNotFoundError(f'Preferences file not found: {path}')
     df = pd.read_csv(path)
+    period_map = mapping["PeriodPrefixes"]  # e.g. {'Aleph': 'A', ...}
+
     campers = []
+    max_pref_count = 0
+    for prefix in period_map.values():
+        prefs = [col for col in df.columns if col.startswith(prefix+'_')]
+        max_pref_count = max(max_pref_count, len(prefs))
+    global PREFERENCES_PER_PERIOD
+    PREFERENCES_PER_PERIOD = max_pref_count
+
     for _, row in df.iterrows():
-        camper_id = str(row['CamperID']).strip()
-        preferences = {period: [] for period in PERIODS}
-        for period in PERIODS:
+        camper_id = str(row[mapping["CamperID"]]).strip()
+        preferences = {}
+        for period, prefix in period_map.items():
+            prefs = []
             for i in range(1, PREFERENCES_PER_PERIOD+1):
-                colname = f"{period}_{i}"
+                colname = f"{prefix}_{i}"
                 if colname in row and pd.notna(row[colname]):
                     hug = str(row[colname]).strip()
-                    if hug and hug not in preferences[period]:
-                        preferences[period].append(hug)
+                    if hug and hug not in prefs:
+                        prefs.append(hug)
+            preferences[period] = prefs
         campers.append({
             'CamperID': camper_id,
             'preferences': preferences,
-            'assignments': {period: {'hug': None, 'how': None} for period in PERIODS}
+            'assignments': {period: {'hug': None, 'how': None} for period in period_map}
         })
+    global PERIODS
+    PERIODS = list(period_map.keys())
     return campers
 
 # ------------- ALLOCATION ENGINE --------------
 
 def assign_period(campers, hugim_for_period, period):
-    """
-    campers: list of camper dicts
-    hugim_for_period: {hug_name: {capacity, enrolled}}
-    For this period:
-    - Try to assign everyone to one hug from top-3 preferences, then from 4th/5th, then randomly.
-    - Each camper gets at most one hug per period.
-    """
-    # Make a list of unassigned campers for this period
     unassigned = set(i for i, camper in enumerate(campers) if camper['assignments'][period]['hug'] is None)
     # Try top 3 preferences
     for pref_rank in range(3):
-        demanders = defaultdict(list)  # hug_name -> [camper idx]
+        demanders = defaultdict(list)
         for idx in unassigned:
             camper = campers[idx]
             prefs = camper['preferences'][period]
@@ -102,10 +115,9 @@ def assign_period(campers, hugim_for_period, period):
                 campers[idx]['assignments'][period]['hug'] = hug
                 campers[idx]['assignments'][period]['how'] = f'Pref_{pref_rank+1}'
                 hugim_for_period[hug]['enrolled'].add(campers[idx]['CamperID'])
-        # Update unassigned list
         unassigned = set(i for i in unassigned if campers[i]['assignments'][period]['hug'] is None)
-    # Try preferences 4-5
-    for pref_rank in range(3, 5):
+    # Try preferences 4-5 (or however many)
+    for pref_rank in range(3, PREFERENCES_PER_PERIOD):
         demanders = defaultdict(list)
         for idx in unassigned:
             camper = campers[idx]
@@ -137,71 +149,78 @@ def assign_period(campers, hugim_for_period, period):
                 break
 
 def run_allocation(campers, hugim):
-    """Assign each camper in each period."""
     for period in PERIODS:
         assign_period(campers, hugim[period], period)
 
 # ---------- OUTPUT HELPERS ------------
 
 def save_assignments(campers, path):
-    # One row per camper: CamperID, Aleph, Beth, Gimmel, Aleph_How, Beth_How, Gimmel_How
+    if not campers:
+        return
+    periods = list(campers[0]['assignments'].keys())
     rows = []
-    cols = ['CamperID'] + [f'{period}_Assigned' for period in PERIODS] + [f'{period}_How' for period in PERIODS]
+    cols = ['CamperID'] + [f'{period}_Assigned' for period in periods] + [f'{period}_How' for period in periods]
     for camper in campers:
         row = [camper['CamperID']]
-        row += [camper['assignments'][period]['hug'] or '' for period in PERIODS]
-        row += [camper['assignments'][period]['how'] or '' for period in PERIODS]
+        row += [camper['assignments'][period]['hug'] or '' for period in periods]
+        row += [camper['assignments'][period]['how'] or '' for period in periods]
         rows.append(row)
     pd.DataFrame(rows, columns=cols).to_csv(path, index=False)
 
 def save_unassigned(campers, path):
+    if not campers:
+        return
+    periods = list(campers[0]['assignments'].keys())
     unassigned = []
     for camper in campers:
-        for period in PERIODS:
+        for period in periods:
             if camper['assignments'][period]['hug'] is None:
                 unassigned.append([camper['CamperID'], period])
     if unassigned:
         pd.DataFrame(unassigned, columns=['CamperID', 'Period']).to_csv(path, index=False)
 
 def save_stats(campers, hugim, path):
-    # Stats per period and overall
-    total = len(campers) * len(PERIODS)
-    got_1st = got_2nd = got_3rd = got_4th = got_5th = randomed = unassigned = 0
+    # Gather period list from campers object
+    if not campers:
+        return
+    periods = list(campers[0]['assignments'].keys())
+    total = len(campers) * len(periods)
+    got = [0] * 6  # 1st,2nd,3rd,4th,5th,random
+    unassigned = 0
     for camper in campers:
-        for period in PERIODS:
+        for period in periods:
             how = camper['assignments'][period]['how']
-            if how == 'Pref_1':
-                got_1st += 1
-            elif how == 'Pref_2':
-                got_2nd += 1
-            elif how == 'Pref_3':
-                got_3rd += 1
-            elif how == 'Pref_4':
-                got_4th += 1
-            elif how == 'Pref_5':
-                got_5th += 1
+            if how and how.startswith('Pref_'):
+                try:
+                    pref_num = int(how.split('_')[1])
+                except Exception:
+                    pref_num = 6  # place in "random" if error
+                if 1 <= pref_num <= 5:
+                    got[pref_num - 1] += 1
+                else:
+                    got[5] += 1
             elif how == 'Random':
-                randomed += 1
+                got[5] += 1
             else:
                 unassigned += 1
     stats = [
         ['Total assignments needed', total],
-        ['Got first choice', got_1st],
-        ['Got second choice', got_2nd],
-        ['Got third choice', got_3rd],
-        ['Got fourth choice', got_4th],
-        ['Got fifth choice', got_5th],
-        ['Randomly assigned', randomed],
+        ['Got first choice', got[0]],
+        ['Got second choice', got[1]],
+        ['Got third choice', got[2]],
+        ['Got fourth choice', got[3]],
+        ['Got fifth choice', got[4]],
+        ['Randomly assigned', got[5]],
         ['Unassigned', unassigned],
-        ['Percent with top-3', f"{(got_1st+got_2nd+got_3rd)/total*100:.1f}%"],
-        ['Percent random', f"{randomed/total*100:.1f}%"],
+        ['Percent with top-3', f"{(got[0]+got[1]+got[2])/total*100:.1f}%"],
+        ['Percent random', f"{got[5]/total*100:.1f}%"],
         ['Percent unassigned', f"{unassigned/total*100:.1f}%"]
     ]
     stats_df = pd.DataFrame(stats, columns=['Stat', 'Value'])
     stats_df.to_csv(path, index=False)
 
-    # Detailed Hugim usage table for each period
-    for period in PERIODS:
+    # Hugim per-period breakdown
+    for period in periods:
         per_hug = []
         for hug, info in hugim[period].items():
             per_hug.append([
@@ -217,8 +236,19 @@ def save_stats(campers, hugim, path):
 
 def main():
     print('Loading data ...')
-    hugim = load_hugim(HUGIM_DATA_FILE)
-    campers = load_preferences(PREFERENCES_DATA_FILE)
+    # For CLI/manual runs, you’ll want to pass mappings or set up fixed ones
+    # Here's a template (you can remove main if just using Streamlit)
+    hugim_mapping = {
+        "HugName": "HugName",
+        "Capacity": "Capacity",
+        "Periods": ["Aleph", "Beth", "Gimmel"]
+    }
+    prefs_mapping = {
+        "CamperID": "CamperID",
+        "PeriodPrefixes": {"Aleph": "Aleph", "Beth": "Beth", "Gimmel": "Gimmel"}
+    }
+    hugim = load_hugim(HUGIM_DATA_FILE, mapping=hugim_mapping)
+    campers = load_preferences(PREFERENCES_DATA_FILE, mapping=prefs_mapping)
 
     print('Running allocation...')
     run_allocation(campers, hugim)
