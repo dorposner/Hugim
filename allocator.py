@@ -86,6 +86,17 @@ def load_preferences(path: str, mapping: dict):
 # ------------- ALLOCATION ENGINE --------------
 
 def assign_period(campers, hugim_for_period, period):
+    periods = list(campers[0]['assignments'].keys())
+
+    # Gather all previous assignments for each camper for cross-period check
+    def already_has_hug(camper, hug):
+        # Returns True if the camper already has 'hug' in any previous period
+        return any(
+            camper['assignments'][p]['hug'] == hug
+            for p in periods
+            if camper['assignments'][p]['hug'] is not None and p != period
+        )
+
     unassigned = set(i for i, camper in enumerate(campers) if camper['assignments'][period]['hug'] is None)
     # Try top 3 preferences
     for pref_rank in range(3):
@@ -95,12 +106,14 @@ def assign_period(campers, hugim_for_period, period):
             prefs = camper['preferences'][period]
             if len(prefs) > pref_rank:
                 hug = prefs[pref_rank]
-                if hug in hugim_for_period:
+                if (
+                    hug in hugim_for_period
+                    and not already_has_hug(camper, hug)
+                ):
                     demanders[hug].append(idx)
         # Randomize order within each hug
         for hug in demanders:
             random.shuffle(demanders[hug])
-        # Assign as many as capacity allows
         for hug, candidates in demanders.items():
             spots = hugim_for_period[hug]['capacity'] - len(hugim_for_period[hug]['enrolled'])
             take = candidates[:spots]
@@ -117,7 +130,10 @@ def assign_period(campers, hugim_for_period, period):
             prefs = camper['preferences'][period]
             if len(prefs) > pref_rank:
                 hug = prefs[pref_rank]
-                if hug in hugim_for_period:
+                if (
+                    hug in hugim_for_period 
+                    and not already_has_hug(camper, hug)
+                ):
                     demanders[hug].append(idx)
         for hug in demanders:
             random.shuffle(demanders[hug])
@@ -129,13 +145,14 @@ def assign_period(campers, hugim_for_period, period):
                 campers[idx]['assignments'][period]['how'] = f'Pref_{pref_rank+1}'
                 hugim_for_period[hug]['enrolled'].add(campers[idx]['CamperID'])
         unassigned = set(i for i in unassigned if campers[i]['assignments'][period]['hug'] is None)
-    # Fill remaining campers randomly
+    # Fill remaining campers randomly (but don't violate the "once only per week" rule)
     available_hugim = [hug for hug, info in hugim_for_period.items() if len(info['enrolled']) < info['capacity']]
     random.shuffle(available_hugim)
     for idx in unassigned:
+        camper = campers[idx]
         for hug in available_hugim:
             info = hugim_for_period[hug]
-            if len(info['enrolled']) < info['capacity']:
+            if len(info['enrolled']) < info['capacity'] and not already_has_hug(camper, hug):
                 campers[idx]['assignments'][period]['hug'] = hug
                 campers[idx]['assignments'][period]['how'] = 'Random'
                 info['enrolled'].add(campers[idx]['CamperID'])
