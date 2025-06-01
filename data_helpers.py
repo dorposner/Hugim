@@ -1,19 +1,20 @@
 import pandas as pd
 import streamlit as st
 
-def find_missing(pref_df, campers_df, hugim_df):
-    campers_set = set(campers_df['CamperID'].astype(str).str.strip())
-    prefs_set = set(pref_df['CamperID'].astype(str).str.strip())
-    missing_campers = sorted(prefs_set - campers_set)
+PERIODS = ["Aleph", "Beth", "Gimmel"]
+PREFERENCES_PER_PERIOD = 5
 
+def find_missing(pref_df, hugim_df):
+    # Check hug names referenced in any preferences columns for all periods
     hugim_set = set(hugim_df['HugName'].astype(str).str.strip())
-    pref_cols = [c for c in pref_df.columns if c.startswith("Pref")]
     hug_names_in_prefs = set()
-    for c in pref_cols:
-        hug_names_in_prefs.update(pref_df[c].dropna().astype(str).str.strip())
+    for period in PERIODS:
+        for i in range(1, PREFERENCES_PER_PERIOD + 1):
+            col = f"{period}_{i}"
+            if col in pref_df.columns:
+                hug_names_in_prefs.update(pref_df[col].dropna().astype(str).str.strip())
     missing_hugim = sorted(hug_names_in_prefs - hugim_set)
-
-    return missing_campers, missing_hugim
+    return missing_hugim   # campers are never missing in new approach
 
 def show_uploaded(st, label, uploaded_file):
     try:
@@ -25,24 +26,17 @@ def show_uploaded(st, label, uploaded_file):
         st.error(f"Could not read {label}: {e}")
         return None
 
-def validate_age_groups(campers_df, hugim_df):
-    campers_valid = set(campers_df["AgeGroup"].dropna().str.capitalize())
-    if not campers_valid.issubset({"Younger", "Older"}):
-        return False, "campers.csv AgeGroup must be 'Younger' or 'Older' only."
-    hugim_valid = set(hugim_df["AgeGroup"].dropna().str.capitalize())
-    if not hugim_valid.issubset({"Younger", "Older", "All"}):
-        return False, "hugim.csv AgeGroup must be 'Younger', 'Older', or 'All' only."
-    return True, ""
-
-def validate_csv_headers(campers_df, hugim_df, prefs_df):
-    campers_headers = set(campers_df.columns)
+def validate_csv_headers(hugim_df, prefs_df):
     hugim_headers = set(hugim_df.columns)
-    if not {'CamperID', 'Got1stChoiceLastWeek', 'AgeGroup'}.issubset(campers_headers):
-        return False, "campers.csv must contain: CamperID, Got1stChoiceLastWeek, AgeGroup"
-    if not {'HugName', 'Capacity', 'AgeGroup'}.issubset(hugim_headers):
-        return False, "hugim.csv must contain: HugName, Capacity, AgeGroup"
+    # Must have HugName, Capacity, Aleph, Beth, Gimmel
+    if not {'HugName', 'Capacity', 'Aleph', 'Beth', 'Gimmel'}.issubset(hugim_headers):
+        return False, "hugim.csv must contain: HugName, Capacity, Aleph, Beth, Gimmel"
+    # preferences.csv: must have CamperID and at least Aleph_1, Beth_1, Gimmel_1
     if 'CamperID' not in prefs_df.columns:
         return False, "preferences.csv must contain a 'CamperID' column."
+    for period in PERIODS:
+        if f"{period}_1" not in prefs_df.columns:
+            return False, f"preferences.csv must have '{period}_1' column."
     return True, ""
 
 def to_csv_download(df, filename, label):
