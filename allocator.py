@@ -78,7 +78,7 @@ def load_preferences(path: str, mapping: dict):
         campers.append({
             'CamperID': camper_id,
             'preferences': preferences,
-            'assignments': {period: {'hug': None, 'how': None} for period in period_map}
+            'assignments': {period: {'hug': None, 'how': None} for period in period_map},
             'score_history': []
         })
     global PERIODS
