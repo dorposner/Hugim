@@ -188,12 +188,21 @@ def save_assignments(campers, path):
     if not campers:
         return
     periods = list(campers[0]['assignments'].keys())
+    # Collect column headers for assignment
+    cols = (
+        ['CamperID']
+        + [f'{period}_Assigned' for period in periods]
+        + [f'{period}_How' for period in periods]
+        + ['Week_Score', 'Cumulative_Score']
+    )
     rows = []
-    cols = ['CamperID'] + [f'{period}_Assigned' for period in periods] + [f'{period}_How' for period in periods]
     for camper in campers:
+        week_score = camper['score_history'][-1] if camper['score_history'] else 0
+        cumulative_score = sum(camper['score_history'])
         row = [camper['CamperID']]
         row += [camper['assignments'][period]['hug'] or '' for period in periods]
         row += [camper['assignments'][period]['how'] or '' for period in periods]
+        row += [week_score, cumulative_score]
         rows.append(row)
     pd.DataFrame(rows, columns=cols).to_csv(path, index=False)
 
