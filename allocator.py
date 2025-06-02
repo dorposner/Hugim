@@ -79,6 +79,7 @@ def load_preferences(path: str, mapping: dict):
             'CamperID': camper_id,
             'preferences': preferences,
             'assignments': {period: {'hug': None, 'how': None} for period in period_map}
+            'score_history': []
         })
     global PERIODS
     PERIODS = list(period_map.keys())
@@ -102,7 +103,7 @@ def assign_period(campers, hugim_for_period, period):
     # Try top 3 preferences
     for pref_rank in range(3):
         demanders = defaultdict(list)
-        for idx in unassigned:
+        for idx in unassigned_list:
             camper = campers[idx]
             prefs = camper['preferences'][period]
             if len(prefs) > pref_rank:
@@ -122,11 +123,11 @@ def assign_period(campers, hugim_for_period, period):
                 campers[idx]['assignments'][period]['hug'] = hug
                 campers[idx]['assignments'][period]['how'] = f'Pref_{pref_rank+1}'
                 hugim_for_period[hug]['enrolled'].add(campers[idx]['CamperID'])
-        unassigned = set(i for i in unassigned if campers[i]['assignments'][period]['hug'] is None)
+        unassigned_list = [i for i in unassigned_list if campers[i]['assignments'][period]['hug'] is None]
     # Try preferences 4-5 (or however many)
     for pref_rank in range(3, PREFERENCES_PER_PERIOD):
         demanders = defaultdict(list)
-        for idx in unassigned:
+        for idx in unassigned_list:
             camper = campers[idx]
             prefs = camper['preferences'][period]
             if len(prefs) > pref_rank:
@@ -145,11 +146,11 @@ def assign_period(campers, hugim_for_period, period):
                 campers[idx]['assignments'][period]['hug'] = hug
                 campers[idx]['assignments'][period]['how'] = f'Pref_{pref_rank+1}'
                 hugim_for_period[hug]['enrolled'].add(campers[idx]['CamperID'])
-        unassigned = set(i for i in unassigned if campers[i]['assignments'][period]['hug'] is None)
+        unassigned_list = [i for i in unassigned_list if campers[i]['assignments'][period]['hug'] is None]
     # Fill remaining campers randomly (but don't violate the "once only per week" rule)
     available_hugim = [hug for hug, info in hugim_for_period.items() if len(info['enrolled']) < info['capacity']]
     random.shuffle(available_hugim)
-    for idx in unassigned:
+    for idx in unassigned_list:
         camper = campers[idx]
         for hug in available_hugim:
             info = hugim_for_period[hug]
@@ -158,11 +159,23 @@ def assign_period(campers, hugim_for_period, period):
                 campers[idx]['assignments'][period]['how'] = 'Random'
                 info['enrolled'].add(campers[idx]['CamperID'])
                 break
-    for idx in unassigned:
+    for idx in unassigned_list:
         camper = campers[idx]
         if camper['assignments'][period]['hug'] is None:
             camper['assignments'][period]['how'] = get_unassignment_reason(campers, idx, period, hugim_for_period)
             
+def calculate_and_store_weekly_scores(campers):
+    """Calculates and stores a satisfaction score (higher=better) for each camper for this round."""
+    PREF_POINTS = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
+    for camper in campers:
+        score = 0
+        for period, assignment in camper['assignments'].items():
+            how = assignment['how']
+            if how and how.startswith('Pref_'):
+                n = int(how.split('_')[1])
+                score += PREF_POINTS.get(n, 0)
+            # You may also decide if you want to count 'Random', 'Forced_minimum', etc as 0
+        camper['score_history'].append(score)
 
 def run_allocation(campers, hugim):
     for period in PERIODS:
