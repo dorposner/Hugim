@@ -160,6 +160,7 @@ def assign_period(campers, hugim_for_period, period):
 def run_allocation(campers, hugim):
     for period in PERIODS:
         assign_period(campers, hugim[period], period)
+    fill_minimums(campers, hugim)
 
 # ---------- OUTPUT HELPERS ------------
 
