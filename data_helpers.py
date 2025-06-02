@@ -84,3 +84,39 @@ def fill_minimums(campers, hugim):
         # This code can be extended for more advanced heuristics (swap lowest-satisfaction assignees etc).
         if missing > 0:
             print(f"Warning: Unable to meet minimum for hug '{hug}'; need {missing} more.")
+
+def get_unassignment_reason(campers, camper_idx, period, hugim_for_period):
+    """Returns a reason for why the camper cannot be assigned in this period."""
+    camper = campers[camper_idx]
+    # 1. Are there any Hugim offered this period?
+    if not hugim_for_period:
+        return "No activities offered in this period."
+
+    # 2. All Hugim at capacity?
+    available = [hug for hug, info in hugim_for_period.items() if len(info["enrolled"]) < info["capacity"]]
+    if not available:
+        return "All activities full in this period."
+
+    # 3. Preference/duplication constraint prevents assignment?
+    preferences = camper["preferences"][period]
+    period_names = camper["assignments"].keys()
+    def already_has_hug(hug):
+        return any(
+            camper["assignments"][p]["hug"] == hug
+            for p in period_names
+            if camper["assignments"][p]["hug"] is not None and p != period
+        )
+    # List Hugs available and not duplicated
+    assignable = [hug for hug in available if not already_has_hug(hug)]
+    if not assignable:
+        return "No activity available without repeating across periods."
+
+    # 4. Just couldn't match preference
+    if not preferences:
+        return "No preferences listed for this period."
+    preferred_and_available = [hug for hug in preferences if hug in assignable]
+    if not preferred_and_available:
+        return "Preferences not available (full, not offered, or duplicate)."
+
+    # 5. Fallback reason
+    return "Unknown reason (please report)."
