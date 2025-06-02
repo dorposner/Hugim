@@ -28,6 +28,7 @@ def main():
     For `hugim.csv`, you must have:
     - Activity column (name of hug)
     - Capacity column (how many can join)
+    - Minimum column (**added: how few must join**) 
     - Columns indicating in which periods (Aleph, Beth, Gimmel...) each hug is offered (should be 1/0 or TRUE/FALSE)
 
     For `preferences.csv`, you must have:
@@ -65,6 +66,7 @@ def main():
         hugim_cols = list(hugim_df.columns)
         hugname_col = st.selectbox("Column for Hug Name (activity name):", hugim_cols, key="hugname")
         cap_col = st.selectbox("Column for Capacity:", hugim_cols, key="capacity")
+        min_col = st.selectbox("Column for Minimum Campers (must join):", hugim_cols, key="min_campers")  # <--- CHANGED/ADDED
         period_cols = st.multiselect(
             "Columns for periods (choose 3, e.g. Aleph, Beth, Gimmel):",
             hugim_cols,
@@ -73,6 +75,7 @@ def main():
         hugim_mapping = {
             "HugName": hugname_col,
             "Capacity": cap_col,
+            "Minimum": min_col,                   # <--- CHANGED/ADDED
             "Periods": period_cols
         }
 
@@ -116,7 +119,9 @@ def main():
     # ------- Allocation Button & Handling -------
     if ready and st.button("Run Allocation"):
         # Save the mapped/edited files in standard names, using ONLY the columns the user mapped!
-        mapped_hugim = hugim_df[[hugim_mapping["HugName"], hugim_mapping["Capacity"]] + list(hugim_mapping["Periods"])]
+        mapped_hugim = hugim_df[
+            [hugim_mapping["HugName"], hugim_mapping["Capacity"], hugim_mapping["Minimum"]] + list(hugim_mapping["Periods"])  # <--- CHANGED/ADDED
+        ]
         mapped_hugim.to_csv("hugim.csv", index=False)
         mapped_prefs = prefs_df.copy()
         mapped_prefs.to_csv("preferences.csv", index=False)
