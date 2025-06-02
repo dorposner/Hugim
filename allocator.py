@@ -22,8 +22,7 @@ random.seed(RANDOM_SEED)
 def load_hugim(path: str, mapping: dict):
     """
     Returns: dict of form:
-    {period: {hug_name: {'capacity': int, 'enrolled': set()}}}
-    mapping: {"HugName": ..., "Capacity": ..., "Periods": [period column 1, ...]}
+    {period: {hug_name: {'capacity': int, 'min': int, 'enrolled': set()}}}
     """
     df = pd.read_csv(path)
     periods = mapping["Periods"]
@@ -31,8 +30,8 @@ def load_hugim(path: str, mapping: dict):
     for _, row in df.iterrows():
         name = str(row[mapping["HugName"]]).strip()
         cap = int(row[mapping["Capacity"]])
+        min_cap = int(row[mapping["Minimum"]])  # <--- added
         for period in periods:
-            # Accept 1/True/yes
             value = row[period]
             offered = False
             try:
@@ -43,8 +42,8 @@ def load_hugim(path: str, mapping: dict):
             except:
                 pass
             if offered:
-                hugim[period][name] = {'capacity': cap, 'enrolled': set()}
-    return hugim  # dict: period -> {hug_name: {capacity, enrolled}}
+                hugim[period][name] = {'capacity': cap, 'min': min_cap, 'enrolled': set()}  # <--- added 'min'
+    return hugim
 
 def load_preferences(path: str, mapping: dict):
     """
