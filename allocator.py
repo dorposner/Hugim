@@ -85,7 +85,7 @@ def load_preferences(path: str, mapping: dict):
     return campers
 
 # ------------- ALLOCATION ENGINE --------------
-
+            
 def assign_period(campers, hugim_for_period, period):
     periods = list(campers[0]['assignments'].keys())
 
@@ -158,6 +158,11 @@ def assign_period(campers, hugim_for_period, period):
                 campers[idx]['assignments'][period]['how'] = 'Random'
                 info['enrolled'].add(campers[idx]['CamperID'])
                 break
+    for idx in unassigned:
+        camper = campers[idx]
+        if camper['assignments'][period]['hug'] is None:
+            camper['assignments'][period]['how'] = get_unassignment_reason(campers, idx, period, hugim_for_period)
+            
 
 def run_allocation(campers, hugim):
     for period in PERIODS:
