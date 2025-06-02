@@ -192,7 +192,9 @@ def save_unassigned(campers, path):
     for camper in campers:
         for period in periods:
             if camper['assignments'][period]['hug'] is None:
-                unassigned.append([camper['CamperID'], period])
+                # This guarantees a non-None reason
+                reason = camper['assignments'][period].get('how') or ''
+                unassigned.append([camper['CamperID'], period, reason])
     if unassigned:
         pd.DataFrame(unassigned, columns=['CamperID', 'Period', 'Reason']).to_csv(path, index=False)
 
