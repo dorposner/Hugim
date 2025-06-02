@@ -28,7 +28,7 @@ def main():
     For `hugim.csv`, you must have:
     - Activity column (name of hug)
     - Capacity column (how many can join)
-    - Minimum column (**added: how few must join**) 
+    - Minimum column (how few must join) 
     - Columns indicating in which periods (Aleph, Beth, Gimmel...) each hug is offered (should be 1/0 or TRUE/FALSE)
 
     For `preferences.csv`, you must have:
