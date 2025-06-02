@@ -100,6 +100,7 @@ def assign_period(campers, hugim_for_period, period):
         )
 
     unassigned = set(i for i, camper in enumerate(campers) if camper['assignments'][period]['hug'] is None)
+    unassigned_list = list(unassigned)
     # Try top 3 preferences
     for pref_rank in range(3):
         demanders = defaultdict(list)
