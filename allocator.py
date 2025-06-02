@@ -194,7 +194,7 @@ def save_unassigned(campers, path):
             if camper['assignments'][period]['hug'] is None:
                 unassigned.append([camper['CamperID'], period])
     if unassigned:
-        pd.DataFrame(unassigned, columns=['CamperID', 'Period']).to_csv(path, index=False)
+        pd.DataFrame(unassigned, columns=['CamperID', 'Period', 'Reason']).to_csv(path, index=False)
 
 def save_stats(campers, hugim, path):
     # Gather period list from campers object
