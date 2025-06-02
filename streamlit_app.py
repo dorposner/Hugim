@@ -9,6 +9,7 @@ from allocator import (
     save_assignments,
     save_unassigned,
     save_stats,
+    calculate_and_store_weekly_scores,
     OUTPUT_ASSIGNMENTS_FILE,
     OUTPUT_STATS_FILE,
     OUTPUT_UNASSIGNED_FILE,
