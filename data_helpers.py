@@ -34,3 +34,51 @@ def validate_csv_headers(hugim_df, prefs_df):
 def to_csv_download(df, filename, label):
     csv = df.to_csv(index=False)
     st.download_button(f"Download edited {label}", csv, file_name=filename, mime="text/csv")
+
+def fill_minimums(campers, hugim):
+    # aggregate Hug assignments over all periods
+    # Step 1: Calculate total assigned per Hug, and store (hug: set of assigned camperIDs)
+    hug_to_campers = defaultdict(set)
+    camper_lookup = {camper['CamperID']: camper for camper in campers}
+    for period in hugim:
+        for hug in hugim[period]:
+            hug_to_campers[hug].update(hugim[period][hug]['enrolled'])
+    # Step 2: Figure out each Hug's minimum
+    # For consistency, just get minimum from first period we find it in (should be same for all its instances)
+    hug_minimums = {}
+    for period in hugim:
+        for hug in hugim[period]:
+            hug_minimums[hug] = hugim[period][hug]['min']
+    # Step 3: For all hugs, ensure enough campers
+    for hug, required_min in hug_minimums.items():
+        have_now = len(hug_to_campers[hug])
+        if have_now >= required_min:
+            continue
+        missing = required_min - have_now
+        # Find unassigned campers (in any period), or campers with lowest satisfaction for this hug
+        available_campers = []
+        # 1st: campers totally unassigned to this hug in any period
+        for camper in campers:
+            if camper['CamperID'] not in hug_to_campers[hug]:
+                available_campers.append(camper)
+        random.shuffle(available_campers)
+        # 2nd: now for each available camper, try to add them to the hug in any period where space allows 
+        for camper in available_campers:
+            periods_with_room = [period for period in hugim if hug in hugim[period] and
+                                 len(hugim[period][hug]['enrolled']) < hugim[period][hug]['capacity']]
+            for period in periods_with_room:
+                assn = camper['assignments'][period]['hug']
+                if assn is None:
+                    # Easy: assign to this hug
+                    camper['assignments'][period]['hug'] = hug
+                    camper['assignments'][period]['how'] = 'Forced_minimum'
+                    hugim[period][hug]['enrolled'].add(camper['CamperID'])
+                    hug_to_campers[hug].add(camper['CamperID'])
+                    missing -= 1
+                    break
+            if missing <= 0:
+                break
+        # If still missing, consider swapping out lowest-preference assignments
+        # This code can be extended for more advanced heuristics (swap lowest-satisfaction assignees etc).
+        if missing > 0:
+            print(f"Warning: Unable to meet minimum for hug '{hug}'; need {missing} more.")
