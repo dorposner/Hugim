@@ -92,7 +92,6 @@ def assign_period(campers, hugim_for_period, period):
 
     # Gather all previous assignments for each camper for cross-period check
     def already_has_hug(camper, hug):
-        # Returns True if the camper already has 'hug' in any previous period
         return any(
             camper['assignments'][p]['hug'] == hug
             for p in periods
@@ -100,7 +99,14 @@ def assign_period(campers, hugim_for_period, period):
         )
 
     unassigned = set(i for i, camper in enumerate(campers) if camper['assignments'][period]['hug'] is None)
+
+    # ----------- SCORE PRIORITY SECTION -----------
+    def get_total_score(camper):
+        return sum(camper.get('score_history', [])) if 'score_history' in camper else 0
     unassigned_list = list(unassigned)
+    unassigned_list.sort(key=lambda idx: get_total_score(campers[idx]))
+    # ----------------------------------------------
+
     # Try top 3 preferences
     for pref_rank in range(3):
         demanders = defaultdict(list)
@@ -158,7 +164,7 @@ def assign_period(campers, hugim_for_period, period):
             if len(info['enrolled']) < info['capacity'] and not already_has_hug(camper, hug):
                 campers[idx]['assignments'][period]['hug'] = hug
                 campers[idx]['assignments'][period]['how'] = 'Random'
-                info['enrolled'].add(campers[idx]['CamperID'])
+                info['enrolled'].add(camper['CamperID'])
                 break
     for idx in unassigned_list:
         camper = campers[idx]
