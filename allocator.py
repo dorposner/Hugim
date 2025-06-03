@@ -63,6 +63,13 @@ def load_preferences(path: str, mapping: dict):
     global PREFERENCES_PER_PERIOD
     PREFERENCES_PER_PERIOD = max_pref_count
 
+    # Check if "score" column exists (case-insensitive)
+    score_column = None
+    for col in df.columns:
+        if col.lower() == "score":
+            score_column = col
+            break
+
     for _, row in df.iterrows():
         camper_id = str(row[mapping["CamperID"]]).strip()
         preferences = {}
@@ -75,11 +82,22 @@ def load_preferences(path: str, mapping: dict):
                     if hug and hug not in prefs:
                         prefs.append(hug)
             preferences[period] = prefs
+
+        # NEW: Load score if present
+        score_val = 0
+        if score_column is not None:
+            try:
+                csv_val = row[score_column]
+                if pd.notna(csv_val):
+                    score_val = float(csv_val)
+            except Exception:
+                score_val = 0
+
         campers.append({
             'CamperID': camper_id,
             'preferences': preferences,
             'assignments': {period: {'hug': None, 'how': None} for period in period_map},
-            'score_history': []
+            'score_history': [score_val] if score_val else []  # <-- starts with previous score
         })
     global PERIODS
     PERIODS = list(period_map.keys())
