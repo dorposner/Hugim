@@ -13,14 +13,16 @@ PREFERENCES_PER_PERIOD = 5
 
 today = datetime.now()   # Get date
 datestring = today.strftime("%Y%m%d%H")  # Date to the desired string format
-PATH = Path(datestring).mkdir(parents=True, exist_ok=True)   # Create folder
+
+OUTPUT_DIR = Path(datestring)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)   # Creates the folder if it doesn't exist
 
 HUGIM_DATA_FILE = 'hugim.csv'
 PREFERENCES_DATA_FILE = 'preferences.csv'
 
-OUTPUT_ASSIGNMENTS_FILE = path(PATH)+'assignments_output.csv'
-OUTPUT_STATS_FILE = PATH+'stats_output.csv'
-OUTPUT_UNASSIGNED_FILE = PATH+'unassigned_campers_output.csv'
+OUTPUT_ASSIGNMENTS_FILE = OUTPUT_DIR / "assignments_output.csv"
+OUTPUT_STATS_FILE = OUTPUT_DIR / "stats_output.csv"
+OUTPUT_UNASSIGNED_FILE = OUTPUT_DIR / "unassigned_campers_output.csv"
 
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
