@@ -18,7 +18,7 @@ PATH = Path(datestring).mkdir(parents=True, exist_ok=True)   # Create folder
 HUGIM_DATA_FILE = 'hugim.csv'
 PREFERENCES_DATA_FILE = 'preferences.csv'
 
-OUTPUT_ASSIGNMENTS_FILE = PATH//'assignments_output.csv'
+OUTPUT_ASSIGNMENTS_FILE = path(PATH)/'assignments_output.csv'
 OUTPUT_STATS_FILE = PATH//'stats_output.csv'
 OUTPUT_UNASSIGNED_FILE = PATH//'unassigned_campers_output.csv'
 
