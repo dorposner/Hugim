@@ -296,9 +296,8 @@ def save_stats(campers, hugim, path):
                 info['capacity'] - len(info['enrolled'])
             ])
         per_hug_df = pd.DataFrame(per_hug, columns=['HugName', 'Assigned', 'Capacity', 'Free'])
-        # per_hug_df.to_csv(path.replace('.csv', f'_{period}_hugim.csv'), index=False)
-        per_hug_path = path.with_name(path.stem + f'_{period}_hugim.csv')
-        per_hug_df.to_csv(per_hug_path, index=False)
+        per_hug_df.to_csv(path.replace('.csv', f'_{period}_hugim.csv'), index=False)
+
 
 # -------------- MAIN ----------------
 
