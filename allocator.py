@@ -2,6 +2,7 @@ import os
 import random
 from collections import defaultdict
 import pandas as pd
+from datetime import datetime
 from data_helpers import fill_minimums
 from data_helpers import get_unassignment_reason
 
@@ -9,12 +10,16 @@ from data_helpers import get_unassignment_reason
 PERIODS = None
 PREFERENCES_PER_PERIOD = 5
 
+today = datetime.now()   # Get date
+datestring = today.strftime("%Y%m%d%H")  # Date to the desired string format
+PATH = Path(datestring).mkdir(parents=True, exist_ok=True)   # Create folder
+
 HUGIM_DATA_FILE = 'hugim.csv'
 PREFERENCES_DATA_FILE = 'preferences.csv'
 
-OUTPUT_ASSIGNMENTS_FILE = 'assignments_output.csv'
-OUTPUT_STATS_FILE = 'stats_output.csv'
-OUTPUT_UNASSIGNED_FILE = 'unassigned_campers_output.csv'
+OUTPUT_ASSIGNMENTS_FILE = PATH/'assignments_output.csv'
+OUTPUT_STATS_FILE = PATH/'stats_output.csv'
+OUTPUT_UNASSIGNED_FILE = PATH/'unassigned_campers_output.csv'
 
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
