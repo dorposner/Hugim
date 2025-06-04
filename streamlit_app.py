@@ -22,7 +22,7 @@ from data_helpers import (
 )
 
 def main():
-    st.title("CYJ Hugim Allocation Web App")
+    st.title("CYJ Hugim Allocation Web App Test")
 
     with st.expander("📄 Click here for instructions (ignore column names if using your own):"):
         st.markdown("""
