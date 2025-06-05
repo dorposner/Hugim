@@ -133,79 +133,79 @@ def main():
 
     # ------- Allocation Button & Handling -------
     if ready:
-    if st.session_state["allocation_run"]:
-        st.warning("Allocation already run for current files. Upload or edit data to enable again.")
-        st.button("Run Allocation", disabled=True)  # Disabled button for clarity
-    else:
-        if st.button("Run Allocation"):
-            st.session_state["allocation_run"] = True  # Mark as run: disables until file upload/edit!
-            # -- Everything below this is your existing allocation logic! --
-            # Save the mapped/edited files in standard names...
-            mapped_hugim = hugim_df[
-                [hugim_mapping["HugName"], hugim_mapping["Capacity"], hugim_mapping["Minimum"]] + list(hugim_mapping["Periods"])
-            ]
-            mapped_hugim.to_csv("hugim.csv", index=False)
-            mapped_prefs = prefs_df.copy()
-            mapped_prefs.to_csv("preferences.csv", index=False)
-
-            try:
-                hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
-                campers = load_preferences("preferences.csv", mapping=prefs_mapping)
-                st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
-
-                run_allocation(campers, hug_data)
-                calculate_and_store_weekly_scores(campers)
-                save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
-                save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
-                save_stats(campers, hug_data, OUTPUT_STATS_FILE)
-
-                if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
-                    df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-                    st.subheader("📋 Assignments Table")
-                    df_assignments.index = df_assignments.index + 1
-                    st.dataframe(df_assignments)
-                    st.download_button(
-                        label="Download Assignments CSV",
-                        data=OUTPUT_ASSIGNMENTS_FILE.read_text(),  # for Path!
-                        file_name=OUTPUT_ASSIGNMENTS_FILE.name,
-                        mime="text/csv"
-                    )
-                else:
-                    st.error("Assignments output was not generated (allocation failed). See warnings above.")
-                    return
-
-                if os.path.exists(OUTPUT_STATS_FILE):
-                    df_stats = pd.read_csv(OUTPUT_STATS_FILE)
-                    st.subheader("📊 Statistics Table")
-                    df_stats.index = df_stats.index + 1
-                    st.dataframe(df_stats)
-                    st.download_button(
-                        label="Download Stats CSV",
-                        data=OUTPUT_STATS_FILE.read_text(),
-                        file_name=OUTPUT_STATS_FILE.name,
-                        mime="text/csv"
-                    )
-                else:
-                    st.warning("No statistics generated.")
-
-                if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
-                    df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
-                    st.subheader("❗ Unassigned Campers")
-                    df_unassigned.index = df_unassigned.index + 1
-                    st.dataframe(df_unassigned)
-                    st.download_button(
-                        label="Download Unassigned Campers CSV",
-                        data=OUTPUT_UNASSIGNED_FILE.read_text(),
-                        file_name=OUTPUT_UNASSIGNED_FILE.name,
-                        mime="text/csv"
-                    )
-                else:
-                    st.success("All campers got a Hug assignment for each period! No one unassigned.")
-
-                if missing_hugim:
-                    st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
-            except Exception as e:
-                st.error(f"Error during allocation: {e}")
+        if st.session_state["allocation_run"]:
+            st.warning("Allocation already run for current files. Upload or edit data to enable again.")
+            st.button("Run Allocation", disabled=True)  # Disabled button for clarity
+        else:
+            if st.button("Run Allocation"):
+                st.session_state["allocation_run"] = True  # Mark as run: disables until file upload/edit!
+                # -- Everything below this is your existing allocation logic! --
+                # Save the mapped/edited files in standard names...
+                mapped_hugim = hugim_df[
+                    [hugim_mapping["HugName"], hugim_mapping["Capacity"], hugim_mapping["Minimum"]] + list(hugim_mapping["Periods"])
+                ]
+                mapped_hugim.to_csv("hugim.csv", index=False)
+                mapped_prefs = prefs_df.copy()
+                mapped_prefs.to_csv("preferences.csv", index=False)
+    
+                try:
+                    hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
+                    campers = load_preferences("preferences.csv", mapping=prefs_mapping)
+                    st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
+    
+                    run_allocation(campers, hug_data)
+                    calculate_and_store_weekly_scores(campers)
+                    save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
+                    save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
+                    save_stats(campers, hug_data, OUTPUT_STATS_FILE)
+    
+                    if os.path.exists(OUTPUT_ASSIGNMENTS_FILE) and os.path.getsize(OUTPUT_ASSIGNMENTS_FILE) > 0:
+                        df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
+                        st.subheader("📋 Assignments Table")
+                        df_assignments.index = df_assignments.index + 1
+                        st.dataframe(df_assignments)
+                        st.download_button(
+                            label="Download Assignments CSV",
+                            data=OUTPUT_ASSIGNMENTS_FILE.read_text(),  # for Path!
+                            file_name=OUTPUT_ASSIGNMENTS_FILE.name,
+                            mime="text/csv"
+                        )
+                    else:
+                        st.error("Assignments output was not generated (allocation failed). See warnings above.")
+                        return
+    
+                    if os.path.exists(OUTPUT_STATS_FILE):
+                        df_stats = pd.read_csv(OUTPUT_STATS_FILE)
+                        st.subheader("📊 Statistics Table")
+                        df_stats.index = df_stats.index + 1
+                        st.dataframe(df_stats)
+                        st.download_button(
+                            label="Download Stats CSV",
+                            data=OUTPUT_STATS_FILE.read_text(),
+                            file_name=OUTPUT_STATS_FILE.name,
+                            mime="text/csv"
+                        )
+                    else:
+                        st.warning("No statistics generated.")
+    
+                    if os.path.exists(OUTPUT_UNASSIGNED_FILE) and os.path.getsize(OUTPUT_UNASSIGNED_FILE) > 0:
+                        df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
+                        st.subheader("❗ Unassigned Campers")
+                        df_unassigned.index = df_unassigned.index + 1
+                        st.dataframe(df_unassigned)
+                        st.download_button(
+                            label="Download Unassigned Campers CSV",
+                            data=OUTPUT_UNASSIGNED_FILE.read_text(),
+                            file_name=OUTPUT_UNASSIGNED_FILE.name,
+                            mime="text/csv"
+                        )
+                    else:
+                        st.success("All campers got a Hug assignment for each period! No one unassigned.")
+    
+                    if missing_hugim:
+                        st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
+                except Exception as e:
+                    st.error(f"Error during allocation: {e}")
 
 if __name__ == "__main__":
     main()
