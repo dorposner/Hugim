@@ -22,6 +22,13 @@ from data_helpers import (
 )
 
 def main():
+
+    # ---- BUTTON SAFETY STATE INIT ----
+    if "allocation_run" not in st.session_state:
+        st.session_state["allocation_run"] = False
+    if "last_upload_key" not in st.session_state:
+        st.session_state["last_upload_key"] = ""
+    
     st.title("CYJ Hugim Allocation Web App")
 
     with st.expander("📄 Click here for instructions (ignore column names if using your own):"):
