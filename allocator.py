@@ -1,20 +1,20 @@
-import os
 import random
 from collections import defaultdict
 import pandas as pd
+from pathlib import Path   # <<<< Add this!
+
 from data_helpers import fill_minimums
 from data_helpers import get_unassignment_reason
 
-# ---------- These no longer NEED to be hardcoded! ---------
 PERIODS = None
 PREFERENCES_PER_PERIOD = 5
 
 HUGIM_DATA_FILE = 'hugim.csv'
 PREFERENCES_DATA_FILE = 'preferences.csv'
 
-OUTPUT_ASSIGNMENTS_FILE = 'assignments_output.csv'
-OUTPUT_STATS_FILE = 'stats_output.csv'
-OUTPUT_UNASSIGNED_FILE = 'unassigned_campers_output.csv'
+OUTPUT_ASSIGNMENTS_FILE = Path("assignments_output.csv")    # <<<< CHANGE TO PATH
+OUTPUT_STATS_FILE = Path("stats_output.csv")                # <<<< CHANGE TO PATH
+OUTPUT_UNASSIGNED_FILE = Path("unassigned_campers_output.csv")   # <<<< CHANGE TO PATH
 
 RANDOM_SEED = 42
 random.seed(RANDOM_SEED)
@@ -296,7 +296,8 @@ def save_stats(campers, hugim, path):
                 info['capacity'] - len(info['enrolled'])
             ])
         per_hug_df = pd.DataFrame(per_hug, columns=['HugName', 'Assigned', 'Capacity', 'Free'])
-        per_hug_df.to_csv(path.replace('.csv', f'_{period}_hugim.csv'), index=False)
+        per_hug_path = path.with_name(path.stem + f'_{period}_hugim.csv')
+        per_hug_df.to_csv(per_hug_path, index=False)
 
 
 # -------------- MAIN ----------------
