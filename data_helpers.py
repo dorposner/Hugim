@@ -36,6 +36,58 @@ def to_csv_download(df, filename, label):
     csv = df.to_csv(index=False)
     st.download_button(f"Download edited {label}", csv, file_name=filename, mime="text/csv")
 
+def enforce_minimums_cancel_and_reallocate(campers, hugim):
+    import streamlit as st
+    canceled_hugs_by_period = {period: set() for period in hugim}
+    changes = True
+    while changes:
+        changes = False
+        # 1. Check each period for canceled Hugim
+        for period in list(hugim.keys()):
+            under_minimum = []
+            for hug_name in list(hugim[period].keys()):
+                info = hugim[period][hug_name]
+                if len(info['enrolled']) < info['min']:
+                    under_minimum.append(hug_name)
+            # Cancel undersubscribed Hugim
+            for hug_name in under_minimum:
+                # Remove campers from these hugs (set assignments to None)
+                for camper in campers:
+                    assn = camper['assignments'][period]
+                    if assn['hug'] == hug_name:
+                        assn['hug'] = None
+                        assn['how'] = None
+                # Remove the hug from the structure
+                del hugim[period][hug_name]
+                canceled_hugs_by_period[period].add(hug_name)
+                changes = True  # We made a change, may need another reallocation round
+        # 2. Redistribute unassigned campers (who lost their hug, or started unassigned)
+        for p_idx, period in enumerate(hugim):
+            for camper in campers:
+                if camper['assignments'][period]['hug'] is None:
+                    # Try to allocate using next available preference
+                    for pref in camper['preferences'][period]:
+                        # Skip any canceled hugs in this period
+                        if pref in canceled_hugs_by_period[period]:
+                            continue
+                        if (pref in hugim[period] and
+                            len(hugim[period][pref]['enrolled']) < hugim[period][pref]['capacity'] and
+                            # Check for uniqueness constraint, i.e., not already assigned in other period:
+                            all(assn['hug'] != pref for p2, assn in camper['assignments'].items() if p2 != period)
+                        ):
+                            camper['assignments'][period]['hug'] = pref
+                            camper['assignments'][period]['how'] = f'Pref_reallocated'
+                            hugim[period][pref]['enrolled'].add(camper['CamperID'])
+                            break  # assigned
+
+    # --- Final reporting, show which hugs were canceled
+    for period, canceled in canceled_hugs_by_period.items():
+        for hug in canceled:
+            try:
+                st.warning(f"Hug '{hug}' in period '{period}' was canceled (did not meet minimum). Campers were re-allocated.")
+            except Exception:
+                print(f"Warning: Hug '{hug}' in period '{period}' was canceled (did not meet minimum).")
+
 def fill_minimums(campers, hugim):
     # aggregate Hug assignments over all periods
     # Step 1: Calculate total assigned per Hug, and store (hug: set of assigned camperIDs)
