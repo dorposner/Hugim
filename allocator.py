@@ -23,37 +23,67 @@ random.seed(RANDOM_SEED)
 
 def load_hugim(path: str, mapping: dict):
     """
-    Returns: dict of form:
-    {period: {hug_name: {'capacity': int, 'min': int, 'enrolled': set()}}}
+    Loads hugim/activity information from a CSV.
+    Returns:
+        dict of the form:
+        {period: {hug_name: {'capacity': int, 'min': int, 'enrolled': set()}}}
+    Skips any row with a non-integer Capacity or Minimum value, reporting the row.
     """
+    import pandas as pd
+    import streamlit as st  # or fallback to print below if not in Streamlit
+
     df = pd.read_csv(path)
     periods = mapping["Periods"]
     hugim = {period: {} for period in periods}
-    for _, row in df.iterrows():
+    rows_skipped = 0
+
+    for i, row in df.iterrows():
         name = str(row[mapping["HugName"]]).strip()
+        raw_capacity = row[mapping["Capacity"]]
+        raw_min = row[mapping["Minimum"]]
+        # Try casting Capacity and Minimum columns to integer
         try:
-            cap = int(row[mapping["Capacity"]])
+            cap = int(float(str(raw_capacity).strip()))
+            min_cap = int(float(str(raw_min).strip()))
+            if cap < 0 or min_cap < 0:
+                raise ValueError
         except Exception:
-            st.warning(f"Non-integer Capacity value for activity '{name}': {row[mapping['Capacity']]}")
-            continue  # skip this row or set a default
-    
-        try:
-            min_cap = int(row[mapping["Minimum"]])
-        except Exception:
-            st.warning(f"Non-integer Minimum value for activity '{name}': {row[mapping['Minimum']]}")
-            continue  # skip this row or set a default
+            try:
+                st.warning(f"Row {i+1} ('{name}') skipped: Capacity or Minimum not a valid integer "
+                           f"(Capacity: {raw_capacity!r}, Minimum: {raw_min!r})")
+            except Exception:
+                print(f"Row {i+1} ('{name}') skipped: Capacity or Minimum not a valid integer "
+                      f"(Capacity: {raw_capacity!r}, Minimum: {raw_min!r})")
+            rows_skipped += 1
+            continue
+
         for period in periods:
             value = row[period]
             offered = False
             try:
-                if str(value).lower() in {'1', 'true', 'yes'}:
+                if str(value).strip().lower() in {"1", "true", "yes"}:
                     offered = True
                 elif isinstance(value, (int, float)) and value > 0:
                     offered = True
-            except:
+                elif str(value).strip() not in {"", "0", "false", "no", "nan"}:
+                    # Accept e.g. literal TRUE case-insensitive
+                    if str(value).strip().lower() in {"y", "t"}:
+                        offered = True
+            except Exception:
                 pass
             if offered:
-                hugim[period][name] = {'capacity': cap, 'min': min_cap, 'enrolled': set()}  # <--- added 'min'
+                hugim[period][name] = {
+                    'capacity': cap,
+                    'min': min_cap,
+                    'enrolled': set()
+                }
+
+    if rows_skipped > 0:
+        try:
+            st.warning(f"{rows_skipped} activities were skipped due to invalid Capacity or Minimum values.")
+        except Exception:
+            print(f"{rows_skipped} activities were skipped due to invalid Capacity or Minimum values.")
+
     return hugim
 
 def load_preferences(path: str, mapping: dict):
