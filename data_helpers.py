@@ -82,8 +82,14 @@ def fill_minimums(campers, hugim):
         # If still missing, consider swapping out lowest-preference assignments
         # This code can be extended for more advanced heuristics (swap lowest-satisfaction assignees etc).
         if missing > 0:
-            print(f"Warning: Unable to meet minimum for hug '{hug}'; need {missing} more.")
-
+            warning_msg = f"Unable to meet minimum for hug '{hug}'; need {missing} more."
+            print("Warning:", warning_msg)
+        try:
+            st.warning(warning_msg)
+        except Exception:
+            # If not running in Streamlit, just ignore
+            pass
+            
 def get_unassignment_reason(campers, camper_idx, period, hugim_for_period):
     """Returns a reason for why the camper cannot be assigned in this period."""
     camper = campers[camper_idx]
