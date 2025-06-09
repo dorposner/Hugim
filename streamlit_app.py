@@ -122,7 +122,11 @@ def main():
         for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
             prefix_str = str(prefix)
             pref_period_cols.extend([col for col in prefs_df.columns if col.startswith(prefix_str + "_")])
-        missing_hugim = find_missing(prefs_df[pref_period_cols], hugim_df[[hugim_mapping["HugName"]]])
+        missing_hugim = find_missing(
+            prefs_df[pref_period_cols],
+            hugim_df,
+            hug_col=hugim_mapping["HugName"]
+        )
         if missing_hugim:
             st.warning(
                 f"These HugNames are referenced in preferences.csv but missing from hugim.csv and will be skipped:\n`{', '.join(missing_hugim)}`"
