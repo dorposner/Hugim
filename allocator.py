@@ -31,8 +31,17 @@ def load_hugim(path: str, mapping: dict):
     hugim = {period: {} for period in periods}
     for _, row in df.iterrows():
         name = str(row[mapping["HugName"]]).strip()
-        cap = int(row[mapping["Capacity"]])
-        min_cap = int(row[mapping["Minimum"]])  # <--- added
+        try:
+            cap = int(row[mapping["Capacity"]])
+        except Exception:
+            st.warning(f"Non-integer Capacity value for activity '{name}': {row[mapping['Capacity']]}")
+            continue  # skip this row or set a default
+    
+        try:
+            min_cap = int(row[mapping["Minimum"]])
+        except Exception:
+            st.warning(f"Non-integer Minimum value for activity '{name}': {row[mapping['Minimum']]}")
+            continue  # skip this row or set a default
         for period in periods:
             value = row[period]
             offered = False
