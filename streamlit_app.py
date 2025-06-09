@@ -153,6 +153,7 @@ def main():
                     st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
 
                     run_allocation(campers, hug_data)
+                    enforce_minimums_cancel_and_reallocate(campers, hugim)
                     calculate_and_store_weekly_scores(campers)
                     save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
                     save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
