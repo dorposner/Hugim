@@ -3,12 +3,11 @@ import streamlit as st
 from collections import defaultdict
 import random
 
-def find_missing(pref_df, hugim_df):
+def find_missing(pref_df, hugim_df, hug_col="HugName"):
     # Find hugim mentioned in any preference but missing from hugim list
-    hugim_set = set(hugim_df['HugName'].astype(str).str.strip())
-    pref_cols = [c for c in pref_df.columns if any(c.startswith(f"{period}_") for period in ["Aleph", "Beth", "Gimmel"])]
+    hugim_set = set(hugim_df[hug_col].astype(str).str.strip())
     hug_names_in_prefs = set()
-    for c in pref_cols:
+    for c in pref_df.columns:
         hug_names_in_prefs.update(pref_df[c].dropna().astype(str).str.strip())
     missing_hugim = sorted(hug_names_in_prefs - hugim_set)
     return missing_hugim
