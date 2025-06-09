@@ -135,8 +135,14 @@ def main():
     # ------- Allocation Button & Handling -------
     if ready:
         if st.session_state["allocation_run"]:
-            st.warning("Allocation already run for current files. Upload or edit data to enable again.")
-            st.button("Run Allocation", disabled=True)
+            st.warning("Allocation already run for current files.")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.button("Run Allocation", disabled=True)
+            with col2:
+                if st.button("Allow Rerun"):
+                    st.session_state["allocation_run"] = False
+                    st.experimental_rerun()
         else:
             if st.button("Run Allocation"):
                 st.session_state["allocation_run"] = True
