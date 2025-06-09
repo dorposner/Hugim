@@ -143,7 +143,6 @@ def main():
             with col2:
                 if st.button("Allow Rerun"):
                     st.session_state["allocation_run"] = False
-                    st.experimental_rerun()
         else:
             if st.button("Run Allocation"):
                 st.session_state["allocation_run"] = True
