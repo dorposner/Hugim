@@ -1,3 +1,17 @@
+Absolutely! Here’s a **full Streamlit app upgrade** focusing on better feedback after allocation, while keeping your original structure.
+
+You’ll see NEW SECTIONS after allocation that provide:
+- A “preference satisfaction” summary table (how many got first/second/third…choice, etc.)
+- An attractive bar chart (for rank of preferences met)
+- Cancelling and demand info for Hugim (who wanted a cancelled Hug, by period)
+- A summary of unassigned reasons
+
+Copy-paste this over your main app, and adjust/iterate as you like!  
+(You may need to install `plotly` if you want the interactive bar chart: `pip install plotly`)
+
+---
+
+```python
 import streamlit as st
 import pandas as pd
 from pathlib import Path
@@ -28,7 +42,6 @@ OUTPUT_STATS_FILE = Path("stats_output.csv")
 OUTPUT_UNASSIGNED_FILE = Path("unassigned_campers_output.csv")
 
 def main():
-    # ---- BUTTON SAFETY STATE INIT ----
     if "allocation_run" not in st.session_state:
         st.session_state["allocation_run"] = False
     if "last_upload_key" not in st.session_state:
@@ -55,7 +68,6 @@ def main():
 
     hugim_df = prefs_df = None
 
-    # Preview/edit both files
     if hugim_file:
         hugim_df = show_uploaded(st, "hugim.csv", hugim_file)
         st.subheader("✏️ Edit hugim.csv")
@@ -67,7 +79,6 @@ def main():
         prefs_df = st.data_editor(prefs_df, num_rows="dynamic", key="edit_prefs")
         to_csv_download(prefs_df, "preferences_edited.csv", "preferences.csv")
 
-    # --- TRACK "last upload" to know if things changed ---
     upload_key = str(hugim_file) + "_" + str(prefs_file)
     if st.session_state["last_upload_key"] != upload_key:
         st.session_state["allocation_run"] = False
@@ -75,7 +86,6 @@ def main():
 
     ready = hugim_df is not None and prefs_df is not None
 
-    # ---- FLEXIBLE MAPPINGS UI ----
     hugim_mapping, prefs_mapping = {}, {}
     if ready:
         st.markdown("## 1. Match your columns")
@@ -95,7 +105,6 @@ def main():
             "Periods": period_cols
         }
 
-        # Preferences mapping
         pref_cols = list(prefs_df.columns)
         camperid_col = st.selectbox("Column for Camper ID:", pref_cols, key="camperid")
         period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
@@ -117,7 +126,6 @@ def main():
         st.info(f"Hugim mapping: {hugim_mapping}")
         st.info(f"Preferences mapping: {prefs_mapping}")
 
-    # ---------- Missing Hugim Check ---------
     if ready:
         pref_period_cols = []
         for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
@@ -133,7 +141,6 @@ def main():
                 f"These HugNames are referenced in preferences.csv but missing from hugim.csv and will be skipped:\n`{', '.join(missing_hugim)}`"
             )
 
-    # ------- Allocation Button & Handling -------
     if ready:
         if st.session_state["allocation_run"]:
             st.warning("Allocation already run for current files.")
@@ -165,7 +172,10 @@ def main():
                     save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
                     save_stats(campers, hug_data, OUTPUT_STATS_FILE)
 
-                    # -- OUTPUTS WITH PATH OBJECTS (no more os.path.* for these) --
+                    # ----- OUTPUTS -----
+                    # =========================
+                    # 1. Assignments Table
+                    # =========================
                     if OUTPUT_ASSIGNMENTS_FILE.exists() and OUTPUT_ASSIGNMENTS_FILE.stat().st_size > 0:
                         df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
                         st.subheader("📋 Assignments Table")
@@ -181,6 +191,45 @@ def main():
                         st.error("Assignments output was not generated (allocation failed). See warnings above.")
                         return
 
+                    # =========================
+                    # 2. Preference Satisfaction Summary
+                    # =========================
+                    st.subheader("🌟 Preference Satisfaction Summary")
+                    how_cols = [col for col in df_assignments.columns if col.endswith('_How')]
+                    pref_counts = {}
+                    for how_col in how_cols:
+                        vals = df_assignments[how_col].value_counts()
+                        for idx, count in vals.items():
+                            pref_counts[idx] = pref_counts.get(idx, 0) + count
+
+                    total_assignments = sum(pref_counts.values())
+                    summary_rows = []
+                    order = ['Pref_1','Pref_2','Pref_3','Pref_4','Pref_5','Random','Forced_minimum', '']
+                    order_labels = ['1st Choice', '2nd Choice', '3rd Choice', '4th Choice', '5th Choice', 'Random', 'Forced Minimum', 'Unassigned']
+                    for pref, label in zip(order, order_labels):
+                        cnt = pref_counts.get(pref, 0)
+                        pct = 100 * cnt / total_assignments if total_assignments else 0
+                        summary_rows.append({"Assignment Type": label, "Count": cnt, "Percent": f"{pct:.1f}%"})
+                    summary_df = pd.DataFrame(summary_rows)
+                    st.dataframe(summary_df)
+
+                    # =========================
+                    # 3. Bar Chart Visualization
+                    # =========================
+                    try:
+                        import plotly.express as px
+                        chart_df = summary_df[summary_df['Assignment Type'] != 'Unassigned']
+                        fig = px.bar(
+                            chart_df, x='Assignment Type', y='Count', text='Percent',
+                            title="Assignments by Preference Rank", color='Assignment Type'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    except ImportError:
+                        st.bar_chart(summary_df[summary_df['Assignment Type'] != 'Unassigned'].set_index('Assignment Type')["Count"])
+
+                    # =========================
+                    # 4. Statistics Table
+                    # =========================
                     if OUTPUT_STATS_FILE.exists():
                         df_stats = pd.read_csv(OUTPUT_STATS_FILE)
                         st.subheader("📊 Statistics Table")
@@ -195,9 +244,13 @@ def main():
                     else:
                         st.warning("No statistics generated.")
 
+                    # =========================
+                    # 5. Unassigned Campers (with reason breakdown)
+                    # =========================
+
                     if OUTPUT_UNASSIGNED_FILE.exists() and OUTPUT_UNASSIGNED_FILE.stat().st_size > 0:
                         df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
-                        st.subheader("❗ Unassigned Campers")
+                        st.subheader("🚫 Unassigned Campers")
                         df_unassigned.index = df_unassigned.index + 1
                         st.dataframe(df_unassigned)
                         st.download_button(
@@ -206,13 +259,51 @@ def main():
                             file_name=OUTPUT_UNASSIGNED_FILE.name,
                             mime="text/csv"
                         )
+
+                        # Reason Breakdown
+                        st.write("### Unassignment Reasons Breakdown")
+                        reason_counts = df_unassigned['Reason'].value_counts()
+                        st.write(reason_counts)
                     else:
                         st.success("All campers got a Hug assignment for each period! No one unassigned.")
+
+                    # =========================
+                    # 6. Cancelled Hugim - Who wanted them?
+                    # =========================
+                    if ready and 'missing_hugim' in locals() and missing_hugim:
+                        st.subheader("❌ Cancelled or Unavailable Hugim Analysis")
+
+                        for hug in missing_hugim:
+                            campers_wanted = []
+                            for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
+                                period_pref_cols = [col for col in prefs_df.columns if col.startswith(f"{prefix}_")]
+                                matches = prefs_df[period_pref_cols].apply(lambda row: hug in row.values, axis=1)
+                                wanted_these = prefs_df.loc[matches, prefs_mapping["CamperID"]].tolist()
+                                campers_wanted.extend([
+                                    f"{str(camper)} (Period: {period})"
+                                    for camper in wanted_these
+                                ])
+                            n_wanted = len(campers_wanted)
+                            st.info(f"Hug '{hug}': {n_wanted} camper(s) listed this as a preference.")
+                            if campers_wanted:
+                                with st.expander(f"See list of campers who wanted '{hug}'"):
+                                    st.write(', '.join(campers_wanted))
+
+                    st.success("Allocation and report sections complete. Please review the summaries, download files as needed, or allow a rerun above if you wish to re-allocate.")
+
+                    # Optionally, summarize at a glance:
+                    st.markdown(f"""
+                        #### 📊 Quick Summary
+                        - **Total campers assigned**: {len(df_assignments)}
+                        - **Total assignments (all periods):** {total_assignments}
+                        - **Unassigned slots:** {summary_df[summary_df['Assignment Type'] == 'Unassigned']['Count'].values[0]}
+                        - **% Got Top-3 choice:** {sum(summary_df.loc[:2, 'Count'])/total_assignments*100:.1f}% 
+                    """)
 
                     if missing_hugim:
                         st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
                 except Exception as e:
+                    import traceback
                     st.error(f"Error during allocation: {e}")
-
-if __name__ == "__main__":
-    main()
+                    with st.expander("Show traceback"):
+                        st.code(traceback.format_exc())
