@@ -76,7 +76,7 @@ def enforce_minimums_cancel_and_reallocate(campers, hugim):
                             all(assn['hug'] != pref for p2, assn in camper['assignments'].items() if p2 != period)
                         ):
                             camper['assignments'][period]['hug'] = pref
-                            camper['assignments'][period]['how'] = f'Pref_reallocated'
+                            camper['assignments'][period]['how'] = 'Reallocated'
                             hugim[period][pref]['enrolled'].add(camper['CamperID'])
                             break  # assigned
 
