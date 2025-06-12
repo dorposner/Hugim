@@ -216,6 +216,9 @@ def assign_period(campers, hugim_for_period, period):
     random.shuffle(available_hugim)
     for idx in unassigned_list:
         camper = campers[idx]
+        # NEW: skip random assignment if camper has no preferences for this period
+        if not camper["preferences"][period]:
+            continue
         for hug in available_hugim:
             info = hugim_for_period[hug]
             if len(info['enrolled']) < info['capacity'] and not already_has_hug(camper, hug):
