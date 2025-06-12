@@ -1,5 +1,4 @@
 import streamlit as st
-st.write("✅ Streamlit script started and this code ran!")  # Debug message
 import pandas as pd
 from pathlib import Path
 
