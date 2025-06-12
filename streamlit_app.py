@@ -1,4 +1,5 @@
 import streamlit as st
+st.write("✅ Streamlit script started and this code ran!")  # Debug message
 import pandas as pd
 from pathlib import Path
 
@@ -293,3 +294,6 @@ def main():
                     st.error(f"Error during allocation: {e}")
                     with st.expander("Show traceback"):
                         st.code(traceback.format_exc())
+
+if __name__ == "__main__":
+    main()
