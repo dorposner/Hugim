@@ -1,127 +1,101 @@
-CamperID,Pref1,Pref2,Pref3,Pref4,Pref5
-Emma Johnson,Basketball: MBKS,Photography: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS
-Liam Smith,Games with Water: NOCT,Science: MBKS,Basketball: NOCT,Board Games: MBKS,Dance: MBKS
-Olivia Brown,Fitness: NOCT,Newstube: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT
-Noah Williams,Cooking: NOCT,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS
-Ava Jones,Ceramics: MBKS,Jewelry Making: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT
-Elijah Garcia,Archery: MBKS,Pools Games: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT
-Sophia Martinez,Dance: NOCT,Ceramics: NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT
-Lucas Rodriguez,Board Games: MBKS,Basketball: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS
-Mia Hernandez,Games with Water: NOCT,Science: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS
-Mason Lopez,Fitness: NOCT,Newstube: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT
-Isabella Gonzalez,Cooking: NOCT,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS
-Ethan Wilson,Ceramics: MBKS,Jewelry Making: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT
-Amelia Anderson,Archery: MBKS,Pools Games: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT
-James Thomas,Dance: NOCT,Ceramics: NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT
-Harper Taylor,Board Games: MBKS,Basketball: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS
-Benjamin Moore,Games with Water: NOCT,Science: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS
-Evelyn Jackson,Fitness: NOCT,Newstube: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT
-Alexander Martin,Cooking: NOCT,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS
-Abigail Lee,Ceramics: MBKS,Jewelry Making: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT
-Michael Perez,Archery: MBKS,Pools Games: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT
-Charlotte Thompson,Dance: NOCT,Ceramics: NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT
-Daniel White,Board Games: MBKS,Basketball: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS
-Scarlett Harris,Games with Water: NOCT,Science: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS
-Henry Clark,Fitness: NOCT,Newstube: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT
-Grace Lewis,Cooking: NOCT,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS
-Jackson Young,Ceramics: MBKS,Jewelry Making: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT
-Chloe Hall,Archery: MBKS,Pools Games: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT
-Sebastian Allen,Dance: NOCT,Ceramics: NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT
-Ella King,Board Games: MBKS,Basketball: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS
-Aiden Wright,Games with Water: NOCT,Science: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS
-Lily Scott,Fitness: NOCT,Newstube: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT
-Matthew Green,Cooking: NOCT,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS
-Aria Adams,Ceramics: MBKS,Jewelry Making: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT
-Samuel Baker,Archery: MBKS,Pools Games: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT
-Zoey Nelson,Dance: NOCT,Ceramics: NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT
-David Hill,Board Games: MBKS,Basketball: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS
-Penelope Carter,Games with Water: NOCT,Science: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS
-Joseph Mitchell,Fitness: NOCT,Newstube: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT
-Layla Roberts,Cooking: NOCT,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS
-Carter Turner,Ceramics: MBKS,Jewelry Making: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT
-Riley Phillips,Archery: MBKS,Pools Games: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT
-Wyatt Campbell,Dance: NOCT,Ceramics: NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT
-Nora Parker,Board Games: MBKS,Basketball: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS
-Jack Evans,Games with Water: NOCT,Science: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS
-Mila Edwards,Fitness: NOCT,Newstube: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT
-Owen Collins,Cooking: NOCT,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS
-Hannah Stewart,Ceramics: MBKS,Jewelry Making: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Theater: NOCT
-Caleb Sanchez,Ceramics: MBKS,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Photography: NOCT
-Aurora Morris,Fun with Yarn: MBKS,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,Science: MBKS
-Luke Rogers,Science: MBKS,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT,Newstube: MBKS
-Ellie Reed,Archery: MBKS,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT,Ropes: NOCT
-Jayden Cook,Newstube: MBKS,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS,Jewelry Making: NOCT
-Stella Morgan,Painting & More: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS,Pools Games: NOCT
-Gabriel Bell,Ropes: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT,Ceramics: NOCT
-Paisley Murphy,Cooking: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Basketball: NOCT
-Isaac Bailey,Dance: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,Science: MBKS
-Addison Rivera,Jewelry Making: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT,Newstube: MBKS
-Anthony Cooper,Pools Games: NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT,Ropes: NOCT
-Lucy Richardson,Photography: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS,Jewelry Making: NOCT
-Dylan Cox,Pickleball: NOCT,Basketball: MBKS,Photography: NOCT,Dance: MBKS,Pools Games: NOCT
-Victoria Howard,Theater: NOCT,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT,Ceramics: NOCT
-Leo Ward,Scouts: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Basketball: NOCT
-Savannah Torres,Tennis: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Theater: NOCT,Science: MBKS
-Julian Peterson,Kindness: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Newstube: MBKS
-Audrey Gray,Ceramics: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,Ropes: NOCT
-Levi Ramirez,Fitness: NOCT,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT,Jewelry Making: NOCT
-Brooklyn James,Games with Water: NOCT NOCT,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT,Pools Games: NOCT
-Nathan Watson,Building & Robot: NOCT NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS,Ceramics: NOCT
-Bella Brooks,Basketball: NOCT,Basketball: MBKS,Photography: NOCT,Dance: MBKS,Ceramics: NOCT
-Ryan Kelly,Board Games: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT,Science: MBKS
-Claire Sanders,Ropes: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Newstube: MBKS
-Jaxon Price,Basketball: MBKS,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,Ropes: NOCT
-Skylar Bennett,Cooking: MBKS,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT,Jewelry Making: NOCT
-Isaiah Wood,Cheer & Gym: MBKS,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT,Pools Games: NOCT
-Aaliyah Barnes,Jam Band: MBKS,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS,Ceramics: NOCT
-Eli Ross,Podcast: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS,Basketball: NOCT
-Camila Henderson,Nature Walk: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT,Science: MBKS
-Landon Coleman,Games with Water: NOCT MBKS,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Newstube: MBKS
-Violet Jenkins,Fitness: MBKS,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,Ropes: NOCT
-Christian Perry,Mt. Biking: MBKS,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Jewelry Making: NOCT
-Aurora Powell,Soccer: MBKS,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,Pools Games: NOCT
-Andrew Long,Pickleball: MBKS,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT,Ceramics: NOCT
-Hazel Patterson,Dance: MBKS,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT,Basketball: NOCT
-Jonathan Hughes,Ceramics: MBKS,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS,Science: MBKS
-Aurora Flores,Fun with Yarn: MBKS,Basketball: MBKS,Photography: NOCT,Dance: MBKS,Newstube: MBKS
-Hunter Foster,Science: MBKS,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT,Ropes: NOCT
-Samantha Simmons,Archery: MBKS,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Jewelry Making: NOCT
-Connor Bryant,Newstube: MBKS,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,Pools Games: NOCT
-Leah Russell,Painting & More: MBKS,Soccer: MBKS,Fun with Yarn: MBKS,Games with Water: NOCT,Ceramics: NOCT
-Thomas Griffin,Ropes: MBKS,Pickleball: MBKS,Fitness: MBKS,Tennis: NOCT,Ceramics: NOCT
-Madelyn Diaz,Cooking: NOCT,Kindness: NOCT,Ropes: MBKS,Podcast: MBKS,Ceramics: NOCT
-Lincoln Hayes,Dance: NOCT,Basketball: MBKS,Photography: NOCT,Dance: MBKS,Ceramics: NOCT
-Kennedy Myers,Jewelry Making: NOCT,Pickleball: NOCT,Jam Band: MBKS,Scouts: NOCT,Ceramics: NOCT
-Cameron Ford,Pools Games: NOCT,Cheer & Gym: MBKS,Theater: NOCT,Nature Walk: MBKS,Ceramics: NOCT
-Ellie Hamilton,Photography: NOCT,Painting & More: MBKS,Mt. Biking: MBKS,Building & Robot: NOCT,
-Asher Graham,Pickleball: NOCT,Ceramics: NOCT,Fun with Yarn: MBKS,Ropes: MBKS,
-Stella Sullivan,Theater: NOCT,Ceramics: NOCT,Fitness: MBKS,Photography: NOCT,
-Christopher Wallace,Scouts: NOCT,Ceramics: NOCT,Ropes: MBKS,Jam Band: MBKS,
-Zoey West,Tennis: NOCT,Ceramics: NOCT,Photography: NOCT,Theater: NOCT,
-Josiah Cole,Kindness: NOCT,Ceramics: NOCT,Jam Band: MBKS,Mt. Biking: MBKS,
-Natalie Jordan,Ceramics: NOCT,Scouts: NOCT,Theater: NOCT,Games with Water: NOCT,
-Hudson Butler,Fitness: NOCT,Ceramics: NOCT,Mt. Biking: MBKS,Games with Water: NOCT,
-Lucy Fisher,Games with Water: NOCT NOCT,Ceramics: NOCT,Fun with Yarn: MBKS,Games with Water: NOCT,
-Ezra Simmons,Building & Robot: NOCT NOCT,Ceramics: NOCT,Fitness: MBKS,Games with Water: NOCT,
-Maya Bryant,Basketball: NOCT,Ceramics: NOCT,Ropes: MBKS,Games with Water: NOCT,
-Charles Alexander,Board Games: MBKS,Ceramics: NOCT,Photography: NOCT,Games with Water: NOCT,
-Emilia Russell,Ropes: NOCT,Ceramics: NOCT,Jam Band: MBKS,Games with Water: NOCT,
-Aaron Griffin,Basketball: MBKS,Ceramics: NOCT,Theater: NOCT,Games with Water: NOCT,
-Scarlett Hayes,Cooking: MBKS,Ceramics: NOCT,Mt. Biking: MBKS,Games with Water: NOCT,
-Adrian Myers,Cheer & Gym: MBKS,Ceramics: NOCT,Ropes: MBKS,Games with Water: NOCT,
-Aurora Ford,Jam Band: MBKS,Ceramics: NOCT,Photography: NOCT,Building & Robot: NOCT,
-Nolan Hamilton,Podcast: MBKS,Ceramics: NOCT,Jam Band: MBKS,Building & Robot: NOCT,
-Ellie Graham,Nature Walk: MBKS,Ceramics: NOCT,Theater: NOCT,Building & Robot: NOCT,
-Easton Sullivan,Games with Water: NOCT MBKS,Ceramics: NOCT,Mt. Biking: MBKS,Building & Robot: NOCT,
-Lily Wallace,Fitness: MBKS,Scouts: NOCT,Podcast: MBKS,Building & Robot: NOCT,
-Colton West,Mt. Biking: MBKS,Scouts: NOCT,Dance: MBKS,Building & Robot: NOCT,
-Chloe Cole,Soccer: MBKS,Scouts: NOCT,Building & Robot: NOCT,Ceramics: NOCT,
-Brayden Jordan,Pickleball: MBKS,Scouts: NOCT,Nature Walk: MBKS,Building & Robot: NOCT,
-Aria Butler,Dance: MBKS,Scouts: NOCT,Building & Robot: NOCT,Ceramics: NOCT,
-Grayson Fisher,Ceramics: MBKS,Scouts: NOCT,Nature Walk: MBKS,Building & Robot: NOCT,
-Isla Simmons,Fun with Yarn: MBKS,Scouts: NOCT,Building & Robot: NOCT,Ceramics: NOCT,
-Jace Bryant,Science: MBKS,Scouts: NOCT,Games with Water: NOCT,Building & Robot: NOCT,Ceramics: NOCT
-Aurora Alexander,Archery: MBKS,Scouts: NOCT,Tennis: NOCT,Building & Robot: NOCT,Ceramics: NOCT
-Parker Russell,Newstube: MBKS,Scouts: NOCT,Podcast: MBKS,Building & Robot: NOCT,Ceramics: NOCT
-Aurora Griffin,Painting & More: MBKS,Scouts: NOCT,Dance: MBKS,Building & Robot: NOCT,Ceramics: NOCT
-Roman Hayes,Ropes: MBKS,Scouts: NOCT,Nature Walk: MBKS,Building & Robot: NOCT,Ceramics: NOCT
+CamperID,Aleph_1,Aleph_2,Aleph_3,Aleph_4,Aleph_5,Beth_1,Beth_2,Beth_3,Beth_4,Beth_5,Gimmel_1,Gimmel_2,Gimmel_3,Gimmel_4,Gimmel_5,score
+Aaron Goldberg,Music,Drama,Ropes,Arts,Baking,Drama,Sports,Nature,Media,Dance,Ropes,Music,Arts,Nature,Dance,12
+Abigail Cohen,Ropes,Arts,Drama,Swim,Baking,Nature,Dance,Sports,Drama,Media,Arts,Baking,Swim,Nature,Ropes,15
+Adam Stein,Arts,Drama,Baking,Music,Swim,Media,Sports,Baking,Dance,Nature,Music,Swim,Arts,Nature,Dance,15
+Alana Rosen,Baking,Ropes,Music,Drama,Arts,Baking,Sports,Media,Nature,Dance,Nature,Baking,Ropes,Dance,Music,14
+Alexander Klein,Drama,Music,Swim,Arts,Ropes,Dance,Nature,Drama,Media,Sports,Swim,Dance,Arts,Music,Baking,12
+Alexandra Levy,Ropes,Music,Swim,Baking,Drama,Sports,Media,Dance,Nature,Baking,Baking,Nature,Ropes,Music,Swim,15
+Ari Shapiro,Arts,Baking,Drama,Ropes,Music,Nature,Drama,Media,Sports,Baking,Arts,Music,Dance,Ropes,Nature,14
+Ariel Friedman,Drama,Arts,Swim,Ropes,Music,Dance,Media,Baking,Drama,Nature,Dance,Nature,Swim,Arts,Baking,14
+Aviva Lerner,Music,Baking,Arts,Swim,Ropes,Media,Nature,Baking,Drama,Sports,Ropes,Baking,Music,Nature,Swim,15
+Benjamin Katz,Ropes,Music,Baking,Drama,Swim,Drama,Media,Sports,Dance,Baking,Nature,Arts,Swim,Ropes,Dance,15
+Bracha Weiss,Arts,Swim,Music,Drama,Baking,Nature,Drama,Media,Dance,Sports,Music,Dance,Nature,Arts,Baking,15
+Caleb Mendel,Drama,Ropes,Baking,Arts,Swim,Sports,Baking,Nature,Dance,Media,Baking,Swim,Ropes,Arts,Music,15
+Chana Miller,Swim,Drama,Arts,Baking,Music,Baking,Drama,Media,Sports,Nature,Swim,Nature,Dance,Ropes,Baking,14
+Daniel Schwartz,Baking,Music,Ropes,Arts,Swim,Dance,Nature,Media,Baking,Sports,Arts,Baking,Ropes,Music,Dance,10
+Davida Kaplan,Arts,Music,Ropes,Swim,Drama,Drama,Sports,Baking,Dance,Nature,Nature,Dance,Music,Swim,Arts,15
+David Goldstein,Drama,Ropes,Music,Baking,Swim,Media,Baking,Nature,Drama,Sports,Ropes,Music,Nature,Baking,Swim,10
+Dina Green,Baking,Drama,Swim,Ropes,Arts,Nature,Sports,Dance,Media,Drama,Dance,Arts,Nature,Swim,Ropes,15
+Eitan Silver,Ropes,Music,Swim,Drama,Arts,Sports,Drama,Media,Baking,Dance,Baking,Music,Ropes,Dance,Swim,15
+Eliana Weinberg,Arts,Baking,Music,Drama,Ropes,Dance,Nature,Baking,Sports,Drama,Swim,Ropes,Arts,Dance,Nature,5
+Elijah Horowitz,Drama,Swim,Ropes,Arts,Music,Media,Sports,Drama,Dance,Nature,Arts,Nature,Music,Baking,Ropes,15
+Elisheva Braun,Baking,Ropes,Arts,Swim,Drama,Baking,Dance,Sports,Nature,Drama,Music,Dance,Ropes,Swim,Baking,10
+Emma Lieberman,Music,Swim,Drama,Arts,Ropes,Drama,Nature,Sports,Media,Baking,Nature,Baking,Arts,Swim,Dance,15
+Ethan Grossman,Ropes,Arts,Music,Drama,Baking,Nature,Media,Sports,Dance,Drama,Ropes,Swim,Arts,Music,Nature,14
+Eva Rosenberg,Swim,Music,Baking,Arts,Drama,Sports,Baking,Media,Drama,Nature,Dance,Baking,Nature,Ropes,Arts,15
+Ezra Abramson,Arts,Ropes,Drama,Baking,Music,Dance,Drama,Nature,Media,Sports,Swim,Nature,Music,Arts,Baking,15
+Faige Blum,Music,Swim,Baking,Ropes,Drama,Media,Nature,Dance,Baking,Sports,Baking,Ropes,Dance,Nature,Arts,15
+Gavi Schwartz,Baking,Ropes,Drama,Swim,Arts,Baking,Sports,Nature,Drama,Media,Arts,Music,Nature,Dance,Swim,11
+Gideon Bauer,Drama,Arts,Music,Ropes,Swim,Drama,Dance,Sports,Media,Baking,Nature,Ropes,Baking,Swim,Arts,12
+Hannah Cohen,Ropes,Music,Swim,Arts,Baking,Nature,Media,Drama,Baking,Dance,Music,Swim,Nature,Arts,Ropes,15
+Hillel Weiss,Arts,Baking,Music,Ropes,Swim,Sports,Nature,Dance,Drama,Media,Dance,Ropes,Baking,Nature,Music,6
+Ilana Schwartz,Swim,Arts,Drama,Ropes,Music,Dance,Baking,Media,Sports,Nature,Ropes,Arts,Baking,Dance,Swim,15
+Isaac Berman,Baking,Music,Arts,Drama,Ropes,Media,Sports,Nature,Drama,Dance,Nature,Music,Ropes,Arts,Swim,15
+Isabella Adler,Music,Ropes,Drama,Arts,Swim,Nature,Drama,Dance,Baking,Sports,Baking,Dance,Swim,Nature,Music,15
+Israel Klein,Drama,Baking,Arts,Ropes,Music,Baking,Nature,Media,Sports,Drama,Swim,Ropes,Nature,Dance,Arts,10
+Jeremy Feldman,Arts,Ropes,Music,Swim,Drama,Drama,Sports,Nature,Dance,Media,Arts,Nature,Baking,Music,Swim,14
+Jessica Rabin,Ropes,Arts,Music,Baking,Drama,Dance,Media,Baking,Sports,Nature,Music,Ropes,Arts,Dance,Nature,15
+Joel Spector,Baking,Music,Drama,Swim,Ropes,Sports,Nature,Drama,Media,Baking,Dance,Swim,Nature,Baking,Ropes,15
+Jordana Kaplan,Swim,Arts,Music,Ropes,Drama,Nature,Dance,Baking,Sports,Drama,Nature,Ropes,Arts,Music,Baking,14
+Joshua Harris,Drama,Music,Arts,Ropes,Baking,Media,Nature,Sports,Drama,Dance,Baking,Arts,Swim,Dance,Nature,15
+Judah Levin,Arts,Ropes,Swim,Music,Drama,Baking,Sports,Media,Dance,Nature,Ropes,Dance,Nature,Music,Swim,11
+Julia Rosenberg,Baking,Arts,Drama,Music,Ropes,Drama,Nature,Media,Sports,Baking,Arts,Baking,Music,Swim,Nature,15
+Kaila Greenberg,Ropes,Drama,Music,Swim,Baking,Dance,Baking,Drama,Nature,Sports,Music,Nature,Ropes,Arts,Dance,10
+Kayla Goldberg,Music,Drama,Ropes,Swim,Arts,Sports,Media,Baking,Drama,Nature,Swim,Arts,Nature,Dance,Baking,15
+Leah Cohen,Swim,Ropes,Music,Baking,Drama,Nature,Drama,Media,Sports,Dance,Nature,Ropes,Music,Baking,Swim,14
+Lena Silver,Arts,Drama,Swim,Baking,Ropes,Baking,Sports,Dance,Nature,Media,Dance,Arts,Swim,Nature,Ropes,15
+Leo Rosenzweig,Baking,Arts,Ropes,Music,Swim,Drama,Media,Nature,Baking,Sports,Baking,Music,Dance,Ropes,Arts,13
+Lili Cohen,Ropes,Music,Arts,Drama,Swim,Dance,Nature,Media,Drama,Sports,Ropes,Nature,Swim,Arts,Music,14
+Lior Greenberg,Drama,Swim,Arts,Ropes,Music,Media,Baking,Sports,Nature,Drama,Arts,Dance,Baking,Nature,Swim,15
+Louis Fisher,Music,Arts,Ropes,Baking,Drama,Sports,Dance,Drama,Nature,Baking,Music,Ropes,Swim,Nature,Dance,14
+Lucy Hirsch,Baking,Ropes,Swim,Arts,Drama,Nature,Media,Baking,Dance,Sports,Nature,Baking,Music,Arts,Ropes,14
+Maayan Levy,Swim,Arts,Music,Drama,Ropes,Baking,Sports,Nature,Drama,Dance,Swim,Arts,Ropes,Music,Dance,14
+Malachi Glick,Ropes,Baking,Arts,Music,Drama,Drama,Sports,Media,Nature,Dance,Dance,Nature,Ropes,Baking,Music,15
+Mara Kaplan,Arts,Music,Swim,Drama,Baking,Dance,Nature,Baking,Drama,Sports,Baking,Swim,Arts,Ropes,Nature,5
+Maya Cohen,Drama,Swim,Baking,Ropes,Arts,Media,Sports,Drama,Nature,Baking,Arts,Dance,Music,Ropes,Swim,15
+Mendy Goldstein,Music,Ropes,Arts,Swim,Drama,Nature,Drama,Sports,Media,Dance,Music,Nature,Swim,Arts,Baking,13
+Miriam Lerner,Baking,Arts,Swim,Ropes,Music,Sports,Baking,Media,Dance,Nature,Ropes,Baking,Dance,Nature,Arts,15
+Moshe Braun,Swim,Drama,Arts,Music,Ropes,Baking,Drama,Nature,Sports,Media,Nature,Arts,Music,Dance,Swim,15
+Naomi Weiss,Arts,Music,Drama,Ropes,Baking,Drama,Sports,Dance,Nature,Media,Swim,Ropes,Baking,Music,Nature,15
+Natan Cohen,Ropes,Arts,Swim,Drama,Music,Dance,Nature,Media,Baking,Sports,Dance,Arts,Nature,Baking,Ropes,10
+Nechama Katz,Drama,Baking,Ropes,Arts,Swim,Media,Nature,Drama,Sports,Baking,Baking,Music,Swim,Nature,Dance,10
+Noah Shapiro,Baking,Music,Swim,Arts,Drama,Sports,Media,Nature,Baking,Dance,Ropes,Arts,Nature,Dance,Music,9
+Noa Friedman,Music,Drama,Ropes,Arts,Baking,Nature,Drama,Dance,Sports,Media,Arts,Swim,Ropes,Baking,Nature,15
+Ora Mendelsohn,Swim,Ropes,Drama,Baking,Arts,Baking,Sports,Drama,Nature,Media,Music,Dance,Nature,Swim,Ropes,15
+Ori Abramson,Arts,Music,Baking,Drama,Ropes,Drama,Dance,Media,Baking,Sports,Nature,Arts,Ropes,Baking,Swim,15
+Penina Schwartz,Ropes,Arts,Music,Drama,Swim,Dance,Nature,Sports,Media,Baking,Swim,Baking,Music,Arts,Nature,15
+Rachel Bernstein,Drama,Baking,Music,Ropes,Arts,Media,Sports,Nature,Dance,Drama,Dance,Music,Nature,Ropes,Baking,10
+Rafi Klein,Baking,Arts,Music,Ropes,Drama,Nature,Media,Drama,Sports,Baking,Baking,Arts,Ropes,Dance,Swim,13
+Raizel Weiss,Music,Swim,Ropes,Arts,Drama,Sports,Baking,Nature,Dance,Media,Ropes,Music,Nature,Arts,Swim,15
+Rebecca Miller,Swim,Drama,Baking,Ropes,Music,Baking,Drama,Media,Sports,Nature,Arts,Dance,Swim,Baking,Nature,15
+Reuben Goldstein,Arts,Ropes,Music,Drama,Baking,Drama,Nature,Sports,Dance,Media,Music,Baking,Ropes,Nature,Swim,15
+Rivka Kaplan,Ropes,Baking,Drama,Swim,Music,Dance,Media,Baking,Sports,Nature,Nature,Swim,Arts,Dance,Music,15
+Ronit Levy,Drama,Arts,Music,Swim,Baking,Media,Sports,Nature,Drama,Dance,Baking,Ropes,Arts,Nature,Dance,15
+Rina Cohen,Baking,Ropes,Arts,Drama,Music,Nature,Drama,Dance,Baking,Sports,Swim,Nature,Ropes,Music,Arts,14
+Ruth Adler,Swim,Ropes,Arts,Music,Drama,Sports,Baking,Media,Drama,Nature,Dance,Baking,Music,Arts,Nature,15
+Sammy Rosenberg,Arts,Baking,Ropes,Drama,Music,Baking,Dance,Sports,Nature,Drama,Ropes,Arts,Swim,Baking,Nature,15
+Sarah Shapiro,Music,Drama,Swim,Arts,Baking,Drama,Nature,Media,Sports,Baking,Music,Dance,Ropes,Swim,Arts,11
+Shai Friedman,Ropes,Arts,Drama,Baking,Swim,Dance,Sports,Nature,Drama,Media,Nature,Baking,Swim,Ropes,Dance,15
+Shalom Abramson,Drama,Music,Swim,Ropes,Arts,Media,Baking,Dance,Nature,Sports,Arts,Ropes,Nature,Music,Dance,15
+Shira Weiss,Baking,Swim,Ropes,Drama,Arts,Nature,Drama,Media,Sports,Baking,Swim,Nature,Baking,Ropes,Arts,11
+Shmuel Cohen,Arts,Ropes,Music,Baking,Swim,Sports,Dance,Baking,Drama,Nature,Dance,Music,Arts,Swim,Nature,14
+Simcha Goldstein,Music,Drama,Baking,Arts,Ropes,Baking,Drama,Media,Nature,Sports,Baking,Ropes,Music,Nature,Swim,14
+Sophie Katz,Swim,Arts,Ropes,Drama,Music,Drama,Nature,Sports,Dance,Media,Ropes,Arts,Swim,Dance,Nature,15
+Talia Miller,Ropes,Music,Arts,Baking,Drama,Dance,Media,Nature,Baking,Sports,Nature,Dance,Music,Ropes,Baking,15
+Tova Green,Drama,Baking,Ropes,Music,Arts,Media,Sports,Drama,Nature,Dance,Music,Baking,Swim,Arts,Ropes,10
+Tzvi Klein,Baking,Arts,Swim,Drama,Music,Nature,Drama,Dance,Sports,Media,Swim,Ropes,Dance,Nature,Arts,15
+Uri Schwartz,Music,Ropes,Drama,Arts,Swim,Sports,Baking,Media,Drama,Nature,Dance,Arts,Music,Nature,Baking,15
+Yehuda Rosenberg,Swim,Baking,Music,Drama,Ropes,Baking,Dance,Nature,Sports,Drama,Baking,Nature,Ropes,Dance,Swim,13
+Yael Cohen,Arts,Drama,Music,Ropes,Swim,Drama,Media,Sports,Dance,Nature,Arts,Music,Nature,Ropes,Swim,14
+Yisrael Weiss,Ropes,Music,Baking,Arts,Drama,Dance,Nature,Baking,Media,Sports,Ropes,Baking,Swim,Arts,Dance,14
+Yonatan Levy,Drama,Arts,Swim,Baking,Ropes,Media,Sports,Drama,Dance,Nature,Nature,Dance,Arts,Music,Swim,15
+Yosef Friedman,Baking,Ropes,Music,Swim,Drama,Nature,Baking,Sports,Drama,Media,Music,Swim,Ropes,Baking,Nature,11
+Zara Kaplan,Arts,Drama,Music,Ropes,Swim,Sports,Dance,Media,Nature,Drama,Baking,Dance,Nature,Arts,Swim,13
+Zelda Rabinowitz,Music,Ropes,Swim,Drama,Arts,Baking,Drama,Nature,Sports,Dance,Swim,Arts,Ropes,Dance,Music,10
+Zev Cohen,Swim,Arts,Baking,Ropes,Drama,Drama,Media,Sports,Nature,Baking,Dance,Nature,Baking,Ropes,Music,15
+Zippora Weiss,Ropes,Drama,Music,Arts,Baking,Dance,Nature,Media,Sports,Baking,Ropes,Arts,Baking,Nature,Swim,13
+Ariella Goldstein,Drama,Baking,Swim,Ropes,Music,Media,Sports,Drama,Baking,Nature,Music,Swim,Dance,Ropes,Arts,15
+Avi Cohen,Baking,Arts,Ropes,Drama,Swim,Nature,Dance,Media,Sports,Drama,,,,,,3
+Elisheva Schwartz,Music,Swim,Drama,Arts,Ropes,Sports,Baking,Nature,Drama,Media,,,,,,6
+Gavriel Miller,Arts,Ropes,Baking,Music,Drama,Baking,Drama,Sports,Dance,Nature,,,,,,0
+Leah Rosenberg,Swim,Drama,Ropes,Arts,Music,,,,,,,,,,,5
