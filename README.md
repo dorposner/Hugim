@@ -47,6 +47,7 @@ Assigns campers to activities based on ranked preferences.
 Randomly assigns any campers who cannot be given their stated preferences, while preventing repeats.
 Cancels activities that don’t meet minimums and reallocates affected campers.
 Download results and view visual summaries.
+
 📊 Outputs
 assignments_output.csv — main allocation results.
 stats_output.csv — summary statistics and period-by-period hugim breakdowns.
@@ -58,9 +59,11 @@ Multi-week “cumulative score” support.
 Detailed “reasons” for unassigned cases.
 Graceful handling of upload or mapping errors.
 Extensible: period names, number of preferences, and column headers all customizable.
+
 🌐 Deployment
 Ready for Streamlit Cloud or self-hosted (see deployment)!
 No database needed; app works solely with CSV files.
+
 🙋 FAQ
 Q: Can a camper get assigned to the same activity twice?
 A: No, assignments enforce unique Hug per camper per week, unless you disable that constraint in the code.
