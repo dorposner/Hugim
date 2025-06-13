@@ -7,6 +7,7 @@ Robust Allocation Algorithm: Assigns campers to Hugim based on ranked preference
 Handles Cancellations/Reallocation: Cancels under-enrolled activities and automatically reallocates their campers.
 Powerful Reporting: Summarizes preference satisfaction, visualizes statistics, and provides detailed tables of assignments and unassigned campers.
 Downloadable Outputs: All key data (assignments, stats, unassigned campers) downloadable in CSV format.
+
 🚀 Quick Start
 1. Clone the Repository
 BASH
