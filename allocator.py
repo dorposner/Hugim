@@ -38,7 +38,7 @@ def load_hugim(path: str, mapping: dict):
     rows_skipped = 0
 
     for i, row in df.iterrows():
-        name = str(row[mapping["HugName"]]).strip()
+        name = str(row[mapping["Hug Name"]]).strip()
         raw_capacity = row[mapping["Capacity"]]
         raw_min = row[mapping["Minimum"]]
         # Try casting Capacity and Minimum columns to integer

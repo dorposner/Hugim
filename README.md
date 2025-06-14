@@ -1,58 +1,112 @@
 CYJ Hugim Activity Allocation Web App
 A flexible, user-friendly Streamlit application for assigning campers to activities (“Hugim”) at summer camps, fully respecting camper preferences and activity constraints.
 
-💡 Features
-Flexible Data Input: Upload your own CSV files for activities and camper preferences.
-Robust Allocation Algorithm: Assigns campers to Hugim based on ranked preferences, activity capacity, and minimums, with no duplicate assignments for the same camper in a week.
-Handles Cancellations/Reallocation: Cancels under-enrolled activities and automatically reallocates their campers.
-Powerful Reporting: Summarizes preference satisfaction, visualizes statistics, and provides detailed tables of assignments and unassigned campers.
-Downloadable Outputs: All key data (assignments, stats, unassigned campers) downloadable in CSV format.
+## ✨ Features
 
-🚀 Quick Start
-1. Clone the Repository
-BASH
+- **Flexible Data Input**: Upload CSV files for activities and camper preferences
+- **In-Browser Editing**: Edit activities and camper preferences directly in the admin interface
+- **Robust Allocation**: Assigns campers based on ranked preferences and activity constraints
+- **State Persistence**: Saves application state between sessions
+- **Responsive UI**: Clean, modern interface with real-time updates
+- **Data Validation**: Ensures data integrity with comprehensive validation
 
-cd cyj-hugim-allocation
-2. Install Dependencies
-BASH
+## 🚀 Quick Start
 
-pip install -r requirements.txt
-3. Launch the App
-BASH
+1. **Install Dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-streamlit run streamlit_app.py
-Visit http://localhost:8501/ in your browser.
+2. **Launch the App**
+   ```bash
+   streamlit run src/pages/admin/dashboard.py
+   ```
+   Visit http://localhost:8501/ in your browser.
 
-📝 Input File Formats
-hugim.csv
-Contains the activity roster and availability:
+3. **Login**
+   - Default username: `admin`
+   - Default password: `admin123`
 
-HugName	Capacity	Minimum	Aleph	Beth	Gimmel
-Art Room	12	6	1	0	1
-Soccer	20	8	1	1	0
-Aleph, Beth, Gimmel columns = period columns (can be changed/mapped in-app).
-preferences.csv
-Each camper’s ordered activity choices for each period.
+## 📁 Project Structure
 
-CamperID	Aleph_1	Aleph_2	...	Beth_1	beth_2	...	Gimmel_5
-1001	Soccer	Art	...	Art	Soccer	...	Soccer
-Add as many preferences per period as you want (columns must be named with Period_PreferenceRank).
+```
+src/
+├── models/                  # Data models
+│   ├── __init__.py
+│   ├── camper.py           # Camper model and preferences
+│   └── period.py           # Period and activity models
+│
+├── pages/
+│   └── admin/
+│       └── dashboard.py    # Main admin interface
+│
+├── utils/
+│   ├── __init__.py
+│   ├── state.py           # Session state management
+│   ├── loaders.py         # Data loading and saving
+│   ├── editors.py         # Data editing interfaces
+│   └── ui/
+│       ├── __init__.py
+│       └── components.py  # Reusable UI components
+│
+└── data/
+    ├── uploads/          # Uploaded CSV files
+    └── state/             # Application state files
+```
 
-🛠️ How It Works
-Upload your activities (hugim.csv) and preferences (preferences.csv) files.
-Map each file’s columns to the expected roles.
-Edit uploaded data directly in the browser if needed.
-Run allocation — the app:
-Assigns campers to activities based on ranked preferences.
-Randomly assigns any campers who cannot be given their stated preferences, while preventing repeats.
-Cancels activities that don’t meet minimums and reallocates affected campers.
-Download results and view visual summaries.
+## 📝 File Formats
+
+### Activities (hugim.csv)
+```csv
+HugName,Capacity,Minimum,Aleph,Beth,Gimmel
+Art Room,12,6,1,0,1
+Soccer,20,8,1,1,0
+```
+- **HugName**: Activity name
+- **Capacity**: Maximum number of campers
+- **Minimum**: Minimum campers needed to run the activity
+- **Period columns (Aleph, Beth, Gimmel)**: 1 if offered in that period, 0 otherwise
+
+### Preferences (preferences.csv)
+```csv
+CamperID,Aleph_1,Aleph_2,Beth_1,Beth_2,Gimmel_1,Gimmel_2
+1001,Soccer,Art,Art,Soccer,Soccer,Art
+1002,Art,Soccer,Soccer,Art,Art,Soccer
+```
+- **CamperID**: Unique identifier for each camper
+- **Period_N**: N-th preference for the period (e.g., Aleph_1 = 1st choice for Aleph period)
+
+## 🛠️ Development
+
+### Prerequisites
+- Python 3.8+
+- pip
+
+### Setup
+1. Clone the repository
+2. Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+### Running Tests
+```bash
+pytest tests/
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 📊 Outputs
 assignments_output.csv — main allocation results.
 stats_output.csv — summary statistics and period-by-period hugim breakdowns.
 unassigned_campers_output.csv — who could not be placed and why.
-All outputs can be downloaded from the Streamlit UI.
 
 ⚙️ Advanced Features
 Multi-week “cumulative score” support.
