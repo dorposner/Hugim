@@ -1,5 +1,8 @@
-CYJ Hugim Activity Allocation Web App
-A flexible, user-friendly Streamlit application for assigning campers to activities (“Hugim”) at summer camps, fully respecting camper preferences and activity constraints.
+# 🏕️ CYJ Hugim Activity Allocation Web App
+
+A flexible, user-friendly Streamlit application for assigning campers to activities ("Hugim") at summer camps, fully respecting camper preferences and activity constraints.
+
+> **Recent Update**: Fixed Activity class initialization to properly handle required 'periods' parameter.
 
 ## ✨ Features
 
@@ -12,20 +15,45 @@ A flexible, user-friendly Streamlit application for assigning campers to activit
 
 ## 🚀 Quick Start
 
-1. **Install Dependencies**
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package manager)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/dorposner/Hugim.git
+   cd Hugim
+   ```
+
+2. **Set up a virtual environment (recommended)**
+   ```bash
+   # Windows
+   python -m venv venv
+   .\venv\Scripts\activate
+   
+   # macOS/Linux
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+
+3. **Install dependencies**
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Launch the App**
+4. **Launch the application**
    ```bash
-   streamlit run src/pages/admin/dashboard.py
+   streamlit run app.py
    ```
-   Visit http://localhost:8501/ in your browser.
+   The application will open in your default web browser at http://localhost:8501/
 
-3. **Login**
-   - Default username: `admin`
-   - Default password: `admin123`
+5. **Login**
+   - Username: `admin`
+   - Password: `admin123`
+
+   > **Security Note**: Change the default credentials in production!
 
 ## 📁 Project Structure
 
@@ -78,26 +106,78 @@ CamperID,Aleph_1,Aleph_2,Beth_1,Beth_2,Gimmel_1,Gimmel_2
 
 ## 🛠️ Development
 
-### Prerequisites
-- Python 3.8+
-- pip
+### Project Structure
 
-### Setup
-1. Clone the repository
-2. Create a virtual environment:
+```
+src/
+├── models/           # Data models and business logic
+│   ├── __init__.py
+│   ├── activity.py   # Activity model and related logic
+│   ├── camper.py     # Camper model and preferences
+│   └── period.py     # Period and scheduling logic
+├── pages/            # Streamlit page modules
+│   ├── admin/        # Admin interface
+│   └── camper/       # Camper interface
+└── utils/            # Utility functions
+    ├── editors.py    # Data editing interfaces
+    ├── loaders.py    # Data loading utilities
+    └── state.py      # Session state management
+```
+
+### Development Setup
+
+1. **Clone the repository**
    ```bash
+   git clone https://github.com/dorposner/Hugim.git
+   cd Hugim
+   ```
+
+2. **Set up development environment**
+   ```bash
+   # Create and activate virtual environment
    python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
+   source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+   
+   # Install development dependencies
+   pip install -r requirements-dev.txt
    ```
 
-### Running Tests
+3. **Run the development server**
+   ```bash
+   streamlit run app.py
+   ```
+
+### Testing
+
+Run the test suite:
 ```bash
 pytest tests/
 ```
+
+### Code Style
+
+This project follows PEP 8 style guidelines. Before committing, please run:
+```bash
+black .
+flake8
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Built with [Streamlit](https://streamlit.io/)
+- Icons by [EmojiOne](https://www.joypixels.com/)
 
 ## 📄 License
 
