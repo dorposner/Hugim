@@ -196,34 +196,72 @@ def show_dashboard():
             with st.spinner("Running allocation..."):
                 try:
                     # Convert data to format expected by the allocator
-                    periods = []
+                    periods = {}
                     for period_name, activities in st.session_state.hugim_data.items():
-                        period = Period(period_name)
+                        period_activities = {}
                         for activity_name, details in activities.items():
-                            activity = Activity(activity_name, details['capacity'], details['min'], periods=[period_name])
-                            period.add_activity(activity)
-                        periods.append(period)
+                            period_activities[activity_name] = {
+                                'capacity': details['capacity'],
+                                'min': details['min'],
+                                'enrolled': set()
+                            }
+                        periods[period_name] = period_activities
                     
-                    # Create campers with preferences
+                    # Create campers with preferences in the format expected by the allocator
                     campers = []
                     for camper_data in st.session_state.campers:
-                        camper = Camper(camper_data['CamperID'])
+                        camper = {
+                            'CamperID': camper_data['CamperID'],
+                            'preferences': {},
+                            'assignments': {period: {'hug': None, 'how': None} 
+                                         for period in st.session_state.mapping["Periods"]},
+                            'score_history': []
+                        }
+                        
+                        # Initialize all periods in preferences
+                        camper['preferences'] = {period: [] for period in st.session_state.mapping["Periods"]}
+                        # Add preferences from camper data
                         for period_name, prefs in camper_data['preferences'].items():
-                            camper.set_preferences(period_name, prefs)
+                            if period_name in camper['preferences']:
+                                camper['preferences'][period_name] = prefs.copy()
+                        
                         campers.append(camper)
                     
-                    # Run allocation
-                    results = run_allocation(campers, periods)
+                    # Debug: Print the data being passed to run_allocation
+                    print("DEBUG - Campers count:", len(campers))
+                    print("DEBUG - Campers sample:", campers[0] if campers else "No campers")
+                    print("DEBUG - Periods keys:", list(periods.keys()) if periods else "No periods")
                     
-                    # Update session state with assignments
-                    for camper_data, camper in zip(st.session_state.campers, campers):
+                    # Run allocation
+                    run_allocation(campers, periods)
+                    
+                    # Update session state with assignments and sync enrollment data
+                    for idx, (camper_data, camper) in enumerate(zip(st.session_state.campers, campers)):
+                        if 'assignments' not in camper:
+                            print(f"DEBUG - Camper {idx} missing assignments:", camper)
+                            continue
+                            
                         for period in st.session_state.mapping["Periods"]:
-                            assignment = camper.get_assignment(period)
-                            if assignment:
+                            if period not in camper['assignments']:
+                                print(f"DEBUG - Period {period} not in camper {idx} assignments")
+                                continue
+                                
+                            assignment = camper['assignments'][period]
+                            if assignment and 'hug' in assignment and assignment['hug']:
+                                # Update camper's assignment
                                 camper_data['assignments'][period] = {
-                                    'hug': assignment.activity.name,
-                                    'how': assignment.method
+                                    'hug': assignment['hug'],
+                                    'how': assignment.get('how', 'assigned')
                                 }
+                                
+                                # Update enrollment in hugim_data
+                                activity_name = assignment['hug']
+                                if (period in st.session_state.hugim_data and 
+                                    activity_name in st.session_state.hugim_data[period]):
+                                    # Add camper to enrolled set if not already there
+                                    if 'enrolled' not in st.session_state.hugim_data[period][activity_name]:
+                                        st.session_state.hugim_data[period][activity_name]['enrolled'] = set()
+                                    st.session_state.hugim_data[period][activity_name]['enrolled'].add(camper_data['CamperID'])
                     
                     save_state()  # Save state after allocation
                     st.toast("Allocation completed successfully!", icon="✅")

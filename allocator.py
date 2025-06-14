@@ -145,17 +145,35 @@ def load_preferences(path: str, mapping: dict):
 # ------------- ALLOCATION ENGINE --------------
             
 def assign_period(campers, hugim_for_period, period):
+    if not campers:
+        print(f"WARNING: No campers provided for period {period}")
+        return
+        
+    # Initialize periods from first camper's assignments
     periods = list(campers[0]['assignments'].keys())
+    if not periods:
+        print(f"WARNING: No periods found in camper assignments for period {period}")
+        return
 
     # Gather all previous assignments for each camper for cross-period check
     def already_has_hug(camper, hug):
+        if not hug:  # Skip if hug is None or empty
+            return False
         return any(
-            camper['assignments'][p]['hug'] == hug
+            p in camper['assignments'] and 
+            camper['assignments'][p] and 
+            camper['assignments'][p].get('hug') == hug
             for p in periods
-            if camper['assignments'][p]['hug'] is not None and p != period
+            if p != period
         )
 
-    unassigned = set(i for i, camper in enumerate(campers) if camper['assignments'][period]['hug'] is None)
+    # Find unassigned campers for this period
+    unassigned = set()
+    for i, camper in enumerate(campers):
+        if (period in camper['assignments'] and 
+            isinstance(camper['assignments'][period], dict) and 
+            camper['assignments'][period].get('hug') is None):
+            unassigned.add(i)
 
     # ----------- SCORE PRIORITY SECTION -----------
     def get_total_score(camper):
@@ -245,7 +263,8 @@ def calculate_and_store_weekly_scores(campers):
         camper['score_history'].append(score)
 
 def run_allocation(campers, hugim):
-    for period in PERIODS:
+    # Use periods from the hugim dictionary keys
+    for period in hugim.keys():
         assign_period(campers, hugim[period], period)
     fill_minimums(campers, hugim)
 

@@ -148,7 +148,7 @@ def load_preferences(file_path: Path, mapping: Dict[str, Any]) -> List[Dict[str,
             'Participant', 'ParticipantID', 'Participant ID', 'participant_id'
         ]
         
-        # Find the first matching column (case insensitive)
+        # Find the first matching column (case insensitive) for ID
         camper_id_col = None
         for col in camper_id_cols:
             if col in df.columns:
@@ -160,7 +160,24 @@ def load_preferences(file_path: Path, mapping: Dict[str, Any]) -> List[Dict[str,
             st.write("Tried column names:", camper_id_cols)
             return []
             
-        st.write(f"Using '{camper_id_col}' as the Camper ID column")
+        # Find name column (try multiple possible names)
+        name_cols = [
+            'Name', 'Full Name', 'CamperName', 'Camper Name',
+            'Participant Name', 'First Name', 'FirstName', 'First'
+        ]
+        
+        # Find the first matching column (case insensitive) for name
+        name_col = None
+        for col in name_cols:
+            if col in df.columns:
+                name_col = col
+                break
+        
+        if not name_col:
+            st.warning("Could not find a name column in the CSV, using Camper ID as name")
+            name_col = camper_id_col  # Fall back to using ID as name
+            
+        st.write(f"Using '{camper_id_col}' as the Camper ID column and '{name_col}' as the name column")
         
         for _, row in df.iterrows():
             try:
@@ -216,8 +233,11 @@ def load_preferences(file_path: Path, mapping: Dict[str, Any]) -> List[Dict[str,
                 
                 # Only add camper if they have at least one preference
                 if preferences:
+                    # Get the camper's name, fall back to camper_id if name is not available
+                    name = str(row.get(name_col, camper_id)).strip()
                     campers.append({
                         'CamperID': camper_id,
+                        'Name': name,  # Add the camper's name
                         'preferences': preferences,
                         'assignments': {}
                     })
