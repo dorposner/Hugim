@@ -3,7 +3,7 @@ import pandas as pd
 from pathlib import Path
 
 st.set_page_config(
-    page_title="CYJ Hugim Allocator",
+    page_title="Camp Hugim Allocator",
     page_icon="🏕️",
     initial_sidebar_state="collapsed"
 )
@@ -58,7 +58,7 @@ def main():
     if "last_upload_key" not in st.session_state:
         st.session_state["last_upload_key"] = ""
 
-    st.title("CYJ Hugim Allocation Web App")
+    st.title("Camp Hugim Allocation Web App")
     with st.expander("📄 Click here for instructions (ignore column names if using your own):"):
         st.markdown("""
         For `hugim.csv`, you must have:
