@@ -116,7 +116,7 @@ def main():
         }
 
         pref_cols = list(prefs_df.columns)
-        camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "id", "student_id", "studentid", "full_name", "fullname", "name", "Full Name"])
+        camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "id", "student_id", "studentid", "full_name", "fullname", "name", "Full_Name"])
         camperid_col = st.selectbox("Column for Camper ID:", pref_cols, index=camperid_idx, key="camperid")
         period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
         st.write("Match your periods:")
