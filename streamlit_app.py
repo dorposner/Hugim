@@ -27,6 +27,25 @@ OUTPUT_ASSIGNMENTS_FILE = Path("assignments_output.csv")
 OUTPUT_STATS_FILE = Path("stats_output.csv")
 OUTPUT_UNASSIGNED_FILE = Path("unassigned_campers_output.csv")
 
+def find_best_column_match(columns, target_names):
+    """
+    Find the best matching column from a list of target names.
+    Returns the index of the best match, or 0 if no match found.
+    """
+    columns_lower = [col.lower().strip() for col in columns]
+    
+    for target in target_names:
+        target_lower = target.lower().strip()
+        # Exact match
+        if target_lower in columns_lower:
+            return columns_lower.index(target_lower)
+        # Partial match (target contained in column name)
+        for i, col in enumerate(columns_lower):
+            if target_lower in col:
+                return i
+    
+    return 0  # Default to first column if no match
+
 def main():
     if "allocation_run" not in st.session_state:
         st.session_state["allocation_run"] = False
@@ -76,9 +95,14 @@ def main():
     if ready:
         st.markdown("## 1. Match your columns")
         hugim_cols = list(hugim_df.columns)
-        hugname_col = st.selectbox("Column for Hug Name (activity name):", hugim_cols, key="hugname")
-        cap_col = st.selectbox("Column for Capacity:", hugim_cols, key="capacity")
-        min_col = st.selectbox("Column for Minimum Campers (must join):", hugim_cols, key="min_campers")
+        # Auto-detect column indices
+        hugname_idx = find_best_column_match(hugim_cols, ["hugname", "hug_name", "activity", "activityname", "name"])
+        capacity_idx = find_best_column_match(hugim_cols, ["capacity", "cap", "max", "maximum"])
+        minimum_idx = find_best_column_match(hugim_cols, ["minimum", "min", "min_campers"])
+
+        hugname_col = st.selectbox("Column for Hug Name (activity name):", hugim_cols, index=hugname_idx, key="hugname")
+        cap_col = st.selectbox("Column for Capacity:", hugim_cols, index=capacity_idx, key="capacity")
+        min_col = st.selectbox("Column for Minimum Campers (must join):", hugim_cols, index=minimum_idx, key="min_campers")
         period_cols = st.multiselect(
             "Columns for periods (choose 3, e.g. Aleph, Beth, Gimmel):",
             hugim_cols,
@@ -92,7 +116,8 @@ def main():
         }
 
         pref_cols = list(prefs_df.columns)
-        camperid_col = st.selectbox("Column for Camper ID:", pref_cols, key="camperid")
+        camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "id", "student_id", "studentid"])
+        camperid_col = st.selectbox("Column for Camper ID:", pref_cols, index=camperid_idx, key="camperid")
         period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
         st.write("Match your periods:")
         period_map = {}
