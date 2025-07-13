@@ -5,7 +5,6 @@ from pathlib import Path
 st.set_page_config(
     page_title="CYJ Hugim Allocator",
     page_icon="🏕️",
-    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
@@ -327,7 +326,7 @@ def main():
                         st.code(traceback.format_exc())
 
     st.markdown("---")
-    st.markdown("Built with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
+    st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
 
 if __name__ == "__main__":
     main()
