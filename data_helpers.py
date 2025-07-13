@@ -66,7 +66,7 @@ def enforce_minimums_cancel_and_reallocate(campers, hugim):
             for camper in campers:
                 if camper['assignments'][period]['hug'] is None:
                     # Try to allocate using next available preference
-                    for pref in camper['preferences'][period]:
+                    for pref_index, pref in enumerate(camper['preferences'][period]):
                         # Skip any canceled hugs in this period
                         if pref in canceled_hugs_by_period[period]:
                             continue
@@ -76,7 +76,8 @@ def enforce_minimums_cancel_and_reallocate(campers, hugim):
                             all(assn['hug'] != pref for p2, assn in camper['assignments'].items() if p2 != period)
                         ):
                             camper['assignments'][period]['hug'] = pref
-                            camper['assignments'][period]['how'] = 'Reallocated'
+                            # Set the preference rank instead of "Reallocated"
+                            camper['assignments'][period]['how'] = f'Pref_{pref_index + 1}'
                             hugim[period][pref]['enrolled'].add(camper['CamperID'])
                             break  # assigned
 
