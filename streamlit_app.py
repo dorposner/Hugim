@@ -22,6 +22,15 @@ from data_helpers import (
     enforce_minimums_cancel_and_reallocate
 )
 
+st.set_page_config(
+    page_title="CYJ Hugim Allocator",
+    page_icon="🏕️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
+st.markdown("---")
+st.markdown("Built with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
+
 # ---- Output paths for this app session ----
 OUTPUT_ASSIGNMENTS_FILE = Path("assignments_output.csv")
 OUTPUT_STATS_FILE = Path("stats_output.csv")
