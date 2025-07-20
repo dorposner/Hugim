@@ -57,6 +57,8 @@ def main():
         st.session_state["allocation_run"] = False
     if "last_upload_key" not in st.session_state:
         st.session_state["last_upload_key"] = ""
+    
+    # ADD THESE NEW SESSION STATE VARIABLES:
     if "allocation_results" not in st.session_state:
         st.session_state["allocation_results"] = None
     if "assignments_df" not in st.session_state:
@@ -66,7 +68,7 @@ def main():
     if "unassigned_df" not in st.session_state:
         st.session_state["unassigned_df"] = None
 
-    st.title("Camp Hugim Allocation Web App")
+    st.title("CYJ Hugim Allocation Web App")
     with st.expander("📄 Click here for instructions (ignore column names if using your own):"):
         st.markdown("""
         For `hugim.csv`, you must have:
@@ -109,11 +111,12 @@ def main():
     if ready:
         st.markdown("## 1. Match your columns")
         hugim_cols = list(hugim_df.columns)
+        
         # Auto-detect column indices
         hugname_idx = find_best_column_match(hugim_cols, ["hugname", "hug_name", "activity", "activityname", "name"])
         capacity_idx = find_best_column_match(hugim_cols, ["capacity", "cap", "max", "maximum"])
         minimum_idx = find_best_column_match(hugim_cols, ["minimum", "min", "min_campers"])
-
+        
         hugname_col = st.selectbox("Column for Hug Name (activity name):", hugim_cols, index=hugname_idx, key="hugname")
         cap_col = st.selectbox("Column for Capacity:", hugim_cols, index=capacity_idx, key="capacity")
         min_col = st.selectbox("Column for Minimum Campers (must join):", hugim_cols, index=minimum_idx, key="min_campers")
@@ -130,7 +133,7 @@ def main():
         }
 
         pref_cols = list(prefs_df.columns)
-        camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "student_id", "studentid", "full_name", "fullname", "name", "Full Name", "id"])
+        camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "id", "student_id", "studentid", "full_name", "fullname", "name"])
         camperid_col = st.selectbox("Column for Camper ID:", pref_cols, index=camperid_idx, key="camperid")
         period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
         st.write("Match your periods:")
@@ -185,7 +188,7 @@ def main():
                 mapped_prefs = prefs_df.copy()
                 mapped_prefs.to_csv("preferences.csv", index=False)
 
-                                try:
+                try:
                     hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
                     campers = load_preferences("preferences.csv", mapping=prefs_mapping)
                     st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
