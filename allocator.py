@@ -157,36 +157,39 @@ def assign_period(campers, hugim_for_period, period):
 
     unassigned = set(i for i, camper in enumerate(campers) if camper['assignments'][period]['hug'] is None)
 
-    # ----------- SCORE PRIORITY SECTION -----------
+    # ----------- IMPROVED SCORE PRIORITY SECTION -----------
     def get_total_score(camper):
         return sum(camper.get('score_history', [])) if 'score_history' in camper else 0
+    
+    # Sort unassigned campers by score (lowest first) - this creates the priority order
     unassigned_list = list(unassigned)
     unassigned_list.sort(key=lambda idx: get_total_score(campers[idx]))
-    # ----------------------------------------------
+    # --------------------------------------------------------
 
-    # Try top 3 preferences
+    # Try each preference level (1st, 2nd, 3rd choice, etc.)
     for pref_rank in range(3):
-        demanders = defaultdict(list)
+        # Create a list of (camper_idx, hug_preference) maintaining score order
+        preference_requests = []
         for idx in unassigned_list:
             camper = campers[idx]
             prefs = camper['preferences'][period]
             if len(prefs) > pref_rank:
                 hug = prefs[pref_rank]
-                if (
-                    hug in hugim_for_period
-                    and not already_has_hug(camper, hug)
-                ):
-                    demanders[hug].append(idx)
-        # Randomize order within each hug
-        for hug in demanders:
-            random.shuffle(demanders[hug])
-        for hug, candidates in demanders.items():
-            spots = hugim_for_period[hug]['capacity'] - len(hugim_for_period[hug]['enrolled'])
-            take = candidates[:spots]
-            for idx in take:
+                if (hug in hugim_for_period and not already_has_hug(camper, hug)):
+                    preference_requests.append((idx, hug))
+        
+        # Process requests in score order (lowest score gets first pick)
+        for idx, hug in preference_requests:
+            hug_info = hugim_for_period[hug]
+            spots_available = hug_info['capacity'] - len(hug_info['enrolled'])
+            
+            # If there's space and camper still needs assignment
+            if spots_available > 0 and campers[idx]['assignments'][period]['hug'] is None:
                 campers[idx]['assignments'][period]['hug'] = hug
                 campers[idx]['assignments'][period]['how'] = f'Pref_{pref_rank+1}'
-                hugim_for_period[hug]['enrolled'].add(campers[idx]['CamperID'])
+                hug_info['enrolled'].add(campers[idx]['CamperID'])
+        
+        # Update unassigned list for next preference round
         unassigned_list = [i for i in unassigned_list if campers[i]['assignments'][period]['hug'] is None]
     # Try preferences 4-5 (or however many)
     for pref_rank in range(3, PREFERENCES_PER_PERIOD):
