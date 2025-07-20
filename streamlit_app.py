@@ -185,7 +185,7 @@ def main():
                 mapped_prefs = prefs_df.copy()
                 mapped_prefs.to_csv("preferences.csv", index=False)
 
-                try:
+                                try:
                     hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
                     campers = load_preferences("preferences.csv", mapping=prefs_mapping)
                     st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
@@ -197,7 +197,6 @@ def main():
                     save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
                     save_stats(campers, hug_data, OUTPUT_STATS_FILE)
 
-                    # ----- OUTPUTS -----
                     # ----- STORE RESULTS IN SESSION STATE -----
                     st.session_state["allocation_results"] = "completed"
                     
@@ -220,6 +219,16 @@ def main():
     # ----- DISPLAY RESULTS SECTION (ALWAYS VISIBLE AFTER ALLOCATION) -----
     if st.session_state.get("allocation_results") == "completed":
         display_allocation_results()
+
+    # Add reset button in results section
+    if st.session_state.get("allocation_results") == "completed":
+        st.markdown("---")
+        if st.button("🔄 Start New Allocation"):
+            # Clear all session state
+            for key in ["allocation_results", "assignments_df", "stats_df", "unassigned_df", "allocation_run"]:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
 
 def display_allocation_results():
     """Display allocation results from session state"""
@@ -337,25 +346,5 @@ def display_allocation_results():
 
         st.success("Allocation complete! Results are persistent - you can download files multiple times.")
 
-                    if missing_hugim:
-                        st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
-                except Exception as e:
-                    import traceback
-                    st.error(f"Error during allocation: {e}")
-                    with st.expander("Show traceback"):
-                        st.code(traceback.format_exc())
-
-    st.markdown("---")
-    st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
-    
-    # Add reset button in results section
-    if st.session_state.get("allocation_results") == "completed":
-        st.markdown("---")
-        if st.button("🔄 Start New Allocation"):
-            # Clear all session state
-            for key in ["allocation_results", "assignments_df", "stats_df", "unassigned_df", "allocation_run"]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
 if __name__ == "__main__":
     main()
