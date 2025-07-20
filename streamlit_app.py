@@ -57,18 +57,8 @@ def main():
         st.session_state["allocation_run"] = False
     if "last_upload_key" not in st.session_state:
         st.session_state["last_upload_key"] = ""
-    
-    # ADD THESE NEW SESSION STATE VARIABLES:
-    if "allocation_results" not in st.session_state:
-        st.session_state["allocation_results"] = None
-    if "assignments_df" not in st.session_state:
-        st.session_state["assignments_df"] = None
-    if "stats_df" not in st.session_state:
-        st.session_state["stats_df"] = None
-    if "unassigned_df" not in st.session_state:
-        st.session_state["unassigned_df"] = None
 
-    st.title("CYJ Hugim Allocation Web App")
+    st.title("Camp Hugim Allocation Web App")
     with st.expander("📄 Click here for instructions (ignore column names if using your own):"):
         st.markdown("""
         For `hugim.csv`, you must have:
@@ -111,12 +101,11 @@ def main():
     if ready:
         st.markdown("## 1. Match your columns")
         hugim_cols = list(hugim_df.columns)
-        
         # Auto-detect column indices
         hugname_idx = find_best_column_match(hugim_cols, ["hugname", "hug_name", "activity", "activityname", "name"])
         capacity_idx = find_best_column_match(hugim_cols, ["capacity", "cap", "max", "maximum"])
         minimum_idx = find_best_column_match(hugim_cols, ["minimum", "min", "min_campers"])
-        
+
         hugname_col = st.selectbox("Column for Hug Name (activity name):", hugim_cols, index=hugname_idx, key="hugname")
         cap_col = st.selectbox("Column for Capacity:", hugim_cols, index=capacity_idx, key="capacity")
         min_col = st.selectbox("Column for Minimum Campers (must join):", hugim_cols, index=minimum_idx, key="min_campers")
@@ -133,7 +122,7 @@ def main():
         }
 
         pref_cols = list(prefs_df.columns)
-        camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "id", "student_id", "studentid", "full_name", "fullname", "name"])
+        camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "student_id", "studentid", "full_name", "fullname", "name", "Full Name", "id"])
         camperid_col = st.selectbox("Column for Camper ID:", pref_cols, index=camperid_idx, key="camperid")
         period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
         st.write("Match your periods:")
@@ -200,154 +189,144 @@ def main():
                     save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
                     save_stats(campers, hug_data, OUTPUT_STATS_FILE)
 
-                    # ----- STORE RESULTS IN SESSION STATE -----
-                    st.session_state["allocation_results"] = "completed"
-                    
-                    # Load and store results in session state
+                    # ----- OUTPUTS -----
+                    # =========================
+                    # 1. Assignments Table
+                    # =========================
                     if OUTPUT_ASSIGNMENTS_FILE.exists() and OUTPUT_ASSIGNMENTS_FILE.stat().st_size > 0:
-                        st.session_state["assignments_df"] = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-                    
-                    if OUTPUT_STATS_FILE.exists():
-                        st.session_state["stats_df"] = pd.read_csv(OUTPUT_STATS_FILE)
-                    
-                    if OUTPUT_UNASSIGNED_FILE.exists() and OUTPUT_UNASSIGNED_FILE.stat().st_size > 0:
-                        st.session_state["unassigned_df"] = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
+                        df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
+                        st.subheader("📋 Assignments Table")
+                        df_assignments.index = df_assignments.index + 1
+                        st.dataframe(df_assignments)
+                        st.download_button(
+                            label="Download Assignments CSV",
+                            data=OUTPUT_ASSIGNMENTS_FILE.read_text(),
+                            file_name=OUTPUT_ASSIGNMENTS_FILE.name,
+                            mime="text/csv"
+                        )
+                    else:
+                        st.error("Assignments output was not generated (allocation failed). See warnings above.")
+                        return
 
+                    # =========================
+                    # 2. Preference Satisfaction Summary
+                    # =========================
+                    st.subheader("🌟 Preference Satisfaction Summary")
+                    how_cols = [col for col in df_assignments.columns if col.endswith('_How')]
+                    pref_counts = {}
+                    for how_col in how_cols:
+                        vals = df_assignments[how_col].value_counts()
+                        for idx, count in vals.items():
+                            pref_counts[idx] = pref_counts.get(idx, 0) + count
+
+                    total_assignments = sum(pref_counts.values())
+                    summary_rows = []
+                    order = ['Pref_1','Pref_2','Pref_3','Pref_4','Pref_5','Random','Forced_minimum', '']
+                    order_labels = ['1st Choice', '2nd Choice', '3rd Choice', '4th Choice', '5th Choice', 'Random', 'Forced Minimum', 'Unassigned']
+                    for pref, label in zip(order, order_labels):
+                        cnt = pref_counts.get(pref, 0)
+                        pct = 100 * cnt / total_assignments if total_assignments else 0
+                        summary_rows.append({"Assignment Type": label, "Count": cnt, "Percent": f"{pct:.1f}%"})
+                    summary_df = pd.DataFrame(summary_rows)
+                    st.dataframe(summary_df)
+
+                    # =========================
+                    # 3. Bar Chart Visualization
+                    # =========================
+                    try:
+                        import plotly.express as px
+                        chart_df = summary_df[summary_df['Assignment Type'] != 'Unassigned']
+                        fig = px.bar(
+                            chart_df, x='Assignment Type', y='Count', text='Percent',
+                            title="Assignments by Preference Rank", color='Assignment Type'
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    except ImportError:
+                        st.bar_chart(summary_df[summary_df['Assignment Type'] != 'Unassigned'].set_index('Assignment Type')["Count"])
+
+                    # =========================
+                    # 4. Statistics Table
+                    # =========================
+                    if OUTPUT_STATS_FILE.exists():
+                        df_stats = pd.read_csv(OUTPUT_STATS_FILE)
+                        st.subheader("📊 Statistics Table")
+                        df_stats.index = df_stats.index + 1
+                        st.dataframe(df_stats)
+                        st.download_button(
+                            label="Download Stats CSV",
+                            data=OUTPUT_STATS_FILE.read_text(),
+                            file_name=OUTPUT_STATS_FILE.name,
+                            mime="text/csv"
+                        )
+                    else:
+                        st.warning("No statistics generated.")
+
+                    # =========================
+                    # 5. Unassigned Campers (with reason breakdown)
+                    # =========================
+
+                    if OUTPUT_UNASSIGNED_FILE.exists() and OUTPUT_UNASSIGNED_FILE.stat().st_size > 0:
+                        df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
+                        st.subheader("🚫 Unassigned Campers")
+                        df_unassigned.index = df_unassigned.index + 1
+                        st.dataframe(df_unassigned)
+                        st.download_button(
+                            label="Download Unassigned Campers CSV",
+                            data=OUTPUT_UNASSIGNED_FILE.read_text(),
+                            file_name=OUTPUT_UNASSIGNED_FILE.name,
+                            mime="text/csv"
+                        )
+
+                        # Reason Breakdown
+                        st.write("### Unassignment Reasons Breakdown")
+                        reason_counts = df_unassigned['Reason'].value_counts()
+                        st.write(reason_counts)
+                    else:
+                        st.success("All campers got a Hug assignment for each period! No one unassigned.")
+
+                    # =========================
+                    # 6. Cancelled Hugim - Who wanted them?
+                    # =========================
+                    if ready and 'missing_hugim' in locals() and missing_hugim:
+                        st.subheader("❌ Cancelled or Unavailable Hugim Analysis")
+
+                        for hug in missing_hugim:
+                            campers_wanted = []
+                            for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
+                                period_pref_cols = [col for col in prefs_df.columns if col.startswith(f"{prefix}_")]
+                                matches = prefs_df[period_pref_cols].apply(lambda row: hug in row.values, axis=1)
+                                wanted_these = prefs_df.loc[matches, prefs_mapping["CamperID"]].tolist()
+                                campers_wanted.extend([
+                                    f"{str(camper)} (Period: {period})"
+                                    for camper in wanted_these
+                                ])
+                            n_wanted = len(campers_wanted)
+                            st.info(f"Hug '{hug}': {n_wanted} camper(s) listed this as a preference.")
+                            if campers_wanted:
+                                with st.expander(f"See list of campers who wanted '{hug}'"):
+                                    st.write(', '.join(campers_wanted))
+
+                    st.success("Allocation and report sections complete. Please review the summaries, download files as needed, or allow a rerun above if you wish to re-allocate.")
+
+                    # Optionally, summarize at a glance:
+                    st.markdown(f"""
+                        #### 📊 Quick Summary
+                        - **Total campers assigned**: {len(df_assignments)}
+                        - **Total assignments (all periods):** {total_assignments}
+                        - **Unassigned slots:** {summary_df[summary_df['Assignment Type'] == 'Unassigned']['Count'].values[0]}
+                        - **% Got Top-3 choice:** {sum(summary_df.loc[:2, 'Count'])/total_assignments*100:.1f}% 
+                    """)
+
+                    if missing_hugim:
+                        st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
                 except Exception as e:
                     import traceback
                     st.error(f"Error during allocation: {e}")
                     with st.expander("Show traceback"):
                         st.code(traceback.format_exc())
 
-    # ----- DISPLAY RESULTS SECTION (ALWAYS VISIBLE AFTER ALLOCATION) -----
-    if st.session_state.get("allocation_results") == "completed":
-        display_allocation_results()
-
-    # Add reset button in results section
-    if st.session_state.get("allocation_results") == "completed":
-        st.markdown("---")
-        if st.button("🔄 Start New Allocation"):
-            # Clear all session state
-            for key in ["allocation_results", "assignments_df", "stats_df", "unassigned_df", "allocation_run"]:
-                if key in st.session_state:
-                    del st.session_state[key]
-            st.rerun()
-
-def display_allocation_results():
-    """Display allocation results from session state"""
-    
-    if st.session_state["assignments_df"] is not None:
-        df_assignments = st.session_state["assignments_df"]
-        
-        # =========================
-        # 1. Assignments Table
-        # =========================
-        st.subheader("📋 Assignments Table")
-        df_assignments_display = df_assignments.copy()
-        df_assignments_display.index = df_assignments_display.index + 1
-        st.dataframe(df_assignments_display)
-        
-        # Download button that doesn't reset
-        csv_assignments = df_assignments.to_csv(index=False)
-        st.download_button(
-            label="Download Assignments CSV",
-            data=csv_assignments,
-            file_name="assignments_output.csv",
-            mime="text/csv",
-            key="download_assignments"
-        )
-
-        # =========================
-        # 2. Preference Satisfaction Summary
-        # =========================
-        st.subheader("🌟 Preference Satisfaction Summary")
-        how_cols = [col for col in df_assignments.columns if col.endswith('_How')]
-        pref_counts = {}
-        for how_col in how_cols:
-            vals = df_assignments[how_col].value_counts()
-            for idx, count in vals.items():
-                pref_counts[idx] = pref_counts.get(idx, 0) + count
-
-        total_assignments = sum(pref_counts.values())
-        summary_rows = []
-        order = ['Pref_1','Pref_2','Pref_3','Pref_4','Pref_5','Random','Forced_minimum', '']
-        order_labels = ['1st Choice', '2nd Choice', '3rd Choice', '4th Choice', '5th Choice', 'Random', 'Forced Minimum', 'Unassigned']
-        for pref, label in zip(order, order_labels):
-            cnt = pref_counts.get(pref, 0)
-            pct = 100 * cnt / total_assignments if total_assignments else 0
-            summary_rows.append({"Assignment Type": label, "Count": cnt, "Percent": f"{pct:.1f}%"})
-        summary_df = pd.DataFrame(summary_rows)
-        st.dataframe(summary_df)
-
-        # =========================
-        # 3. Bar Chart Visualization
-        # =========================
-        try:
-            import plotly.express as px
-            chart_df = summary_df[summary_df['Assignment Type'] != 'Unassigned']
-            fig = px.bar(
-                chart_df, x='Assignment Type', y='Count', text='Percent',
-                title="Assignments by Preference Rank", color='Assignment Type'
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        except ImportError:
-            st.bar_chart(summary_df[summary_df['Assignment Type'] != 'Unassigned'].set_index('Assignment Type')["Count"])
-
-        # =========================
-        # 4. Statistics Table
-        # =========================
-        if st.session_state["stats_df"] is not None:
-            df_stats = st.session_state["stats_df"]
-            st.subheader("📊 Statistics Table")
-            df_stats_display = df_stats.copy()
-            df_stats_display.index = df_stats_display.index + 1
-            st.dataframe(df_stats_display)
-            
-            csv_stats = df_stats.to_csv(index=False)
-            st.download_button(
-                label="Download Stats CSV",
-                data=csv_stats,
-                file_name="stats_output.csv",
-                mime="text/csv",
-                key="download_stats"
-            )
-
-        # =========================
-        # 5. Unassigned Campers
-        # =========================
-        if st.session_state["unassigned_df"] is not None:
-            df_unassigned = st.session_state["unassigned_df"]
-            st.subheader("🚫 Unassigned Campers")
-            df_unassigned_display = df_unassigned.copy()
-            df_unassigned_display.index = df_unassigned_display.index + 1
-            st.dataframe(df_unassigned_display)
-            
-            csv_unassigned = df_unassigned.to_csv(index=False)
-            st.download_button(
-                label="Download Unassigned Campers CSV",
-                data=csv_unassigned,
-                file_name="unassigned_campers_output.csv",
-                mime="text/csv",
-                key="download_unassigned"
-            )
-
-            # Reason Breakdown
-            st.write("### Unassignment Reasons Breakdown")
-            reason_counts = df_unassigned['Reason'].value_counts()
-            st.write(reason_counts)
-        else:
-            st.success("All campers got a Hug assignment for each period! No one unassigned.")
-
-        # Summary
-        st.markdown(f"""
-            #### 📊 Quick Summary
-            - **Total campers assigned**: {len(df_assignments)}
-            - **Total assignments (all periods):** {total_assignments}
-            - **Unassigned slots:** {summary_df[summary_df['Assignment Type'] == 'Unassigned']['Count'].values[0]}
-            - **% Got Top-3 choice:** {sum(summary_df.loc[:2, 'Count'])/total_assignments*100:.1f}% 
-        """)
-
-        st.success("Allocation complete! Results are persistent - you can download files multiple times.")
+    st.markdown("---")
+    st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
 
 if __name__ == "__main__":
     main()
