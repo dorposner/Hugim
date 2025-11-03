@@ -344,14 +344,26 @@ def main():
                                 with st.expander(f"See list of campers who wanted '{hug}'"):
                                     st.write(', '.join(campers_wanted))
 
-                    # 🔹 Save all results into session_state
+                    # 🔹 Save all results into session_state (after files are saved)
+                    if OUTPUT_ASSIGNMENTS_FILE.exists():
+                        st.session_state["assignments_df"] = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
+                    else:
+                        st.session_state["assignments_df"] = None
+                    
+                    if OUTPUT_STATS_FILE.exists():
+                        st.session_state["stats_df"] = pd.read_csv(OUTPUT_STATS_FILE)
+                    else:
+                        st.session_state["stats_df"] = None
+                    
+                    if OUTPUT_UNASSIGNED_FILE.exists():
+                        st.session_state["unassigned_df"] = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
+                    else:
+                        st.session_state["unassigned_df"] = None
+                    
                     st.session_state["campers"] = campers
                     st.session_state["hug_data"] = hug_data
-                    st.session_state["assignments_df"] = assignments_df
-                    st.session_state["stats_df"] = stats_df
-                    st.session_state["unassigned_df"] = unassigned_df
-
-                    st.success("Allocation and report sections complete. Please review the summaries, download files as needed, or allow a rerun above if you wish to re-allocate.")
+                    
+                    st.success("✅ Allocation completed! You can now view or download results below.")
 
                     if st.session_state["assignments_df"] is not None:
                         st.subheader("📋 Assignments Results")
