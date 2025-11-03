@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-# ============================"
+# ============================
 # 1. FILE UPLOAD MAIN AREA
-# ============================"
+# ============================
 st.title("🏕️ Camp Hugim Allocator")
 st.markdown("Upload your files to get started:")
 col1, col2 = st.columns(2)
@@ -18,13 +18,18 @@ with col2:
         type="csv",
         key="prefs_uploader"
     )
-# ============================"
+# ============================
 # 2. MAIN LOGIC
-# ============================"
+# ============================
 if hugim_file and prefs_file:
     try:
         # Load data
         df_hugim = pd.read_csv(hugim_file)
         df_prefs = pd.read_csv(prefs_file)
         
+        
         # Display info
+    except Exception as e:
+        st.error(f"שגיאת עיבוד קבצים: {str(e)}")
+        import traceback
+        st.write(traceback.format_exc())
