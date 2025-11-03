@@ -349,4 +349,7 @@ def main():
                         st.code(traceback.format_exc())
 
     st.markdown("---")
-    st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:d
+    st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
+
+if __name__ == "__main__":
+    main()
