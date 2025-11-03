@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
-
 st.set_page_config(
     page_title="Camp Hugim Allocator",
     page_icon="🏕️",
     initial_sidebar_state="collapsed"
 )
-
 from allocator import (
     load_hugim,
     load_preferences,
@@ -20,14 +18,12 @@ from allocator import (
     OUTPUT_STATS_FILE as ALLOCATOR_OUTPUT_STATS_FILE,
     OUTPUT_UNASSIGNED_FILE as ALLOCATOR_OUTPUT_UNASSIGNED_FILE,
 )
-
 from data_helpers import (
     find_missing,
     show_uploaded,
     to_csv_download,
     enforce_minimums_cancel_and_reallocate
 )
-
 # ---- Output paths for this app session ----
 OUTPUT_ASSIGNMENTS_FILE = Path("assignments_output.csv")
 OUTPUT_STATS_FILE = Path("stats_output.csv")
@@ -59,6 +55,7 @@ def main():
         st.session_state["last_upload_key"] = ""
 
     st.title("Camp Hugim Allocation Web App")
+
     with st.expander("📄 Click here for instructions (ignore column names if using your own):"):
         st.markdown("""
         For `hugim.csv`, you must have:
@@ -73,7 +70,6 @@ def main():
         """)
 
     st.write("Upload your CSV files below. You can preview and edit before running allocation:")
-
     hugim_file = st.file_uploader("Upload hugim.csv", type=["csv"])
     prefs_file = st.file_uploader("Upload preferences.csv", type=["csv"])
 
@@ -84,6 +80,7 @@ def main():
         st.subheader("✏️ Edit hugim.csv")
         hugim_df = st.data_editor(hugim_df, num_rows="dynamic", key="edit_hugim")
         to_csv_download(hugim_df, "hugim_edited.csv", "hugim.csv")
+
     if prefs_file:
         prefs_df = show_uploaded(st, "preferences.csv", prefs_file)
         st.subheader("✏️ Edit preferences.csv")
@@ -96,11 +93,12 @@ def main():
         st.session_state["last_upload_key"] = upload_key
 
     ready = hugim_df is not None and prefs_df is not None
-
     hugim_mapping, prefs_mapping = {}, {}
+
     if ready:
         st.markdown("## 1. Match your columns")
         hugim_cols = list(hugim_df.columns)
+
         # Auto-detect column indices
         hugname_idx = find_best_column_match(hugim_cols, ["hugname", "hug_name", "activity", "activityname", "name"])
         capacity_idx = find_best_column_match(hugim_cols, ["capacity", "cap", "max", "maximum"])
@@ -109,11 +107,29 @@ def main():
         hugname_col = st.selectbox("Column for Hug Name (activity name):", hugim_cols, index=hugname_idx, key="hugname")
         cap_col = st.selectbox("Column for Capacity:", hugim_cols, index=capacity_idx, key="capacity")
         min_col = st.selectbox("Column for Minimum Campers (must join):", hugim_cols, index=minimum_idx, key="min_campers")
+
         period_cols = st.multiselect(
             "Columns for periods (choose 3, e.g. Aleph, Beth, Gimmel):",
             hugim_cols,
             default=[col for col in hugim_cols if col.lower() in ["aleph", "beth", "gimmel"]]
         )
+
+        # NEW: Show detected periods and allow adding a new period (UI-only)
+        st.write("🎪 Detected periods from hugim.csv:")
+        if period_cols:
+            st.info(", ".join(period_cols))
+        else:
+            st.warning("No period columns selected. Please choose the period columns above.")
+
+        new_period = st.text_input("Add a new period name (optional):", value="", placeholder="e.g., Dalet")
+        if new_period and new_period.strip():
+            new_period_clean = new_period.strip()
+            if new_period_clean not in period_cols:
+                period_cols.append(new_period_clean)
+                st.success(f"New period '{new_period_clean}' has been added to the list (UI only).")
+            else:
+                st.info(f"Period '{new_period_clean}' already exists in the list.")
+
         hugim_mapping = {
             "HugName": hugname_col,
             "Capacity": cap_col,
@@ -124,6 +140,7 @@ def main():
         pref_cols = list(prefs_df.columns)
         camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "student_id", "studentid", "full_name", "fullname", "name", "Full Name", "id"])
         camperid_col = st.selectbox("Column for Camper ID:", pref_cols, index=camperid_idx, key="camperid")
+
         period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
         st.write("Match your periods:")
         period_map = {}
@@ -136,10 +153,12 @@ def main():
                 key=f"pref_prefix_{period}"
             )
             period_map[period] = value
+
         prefs_mapping = {
             "CamperID": camperid_col,
             "PeriodPrefixes": period_map
         }
+
         st.info(f"Hugim mapping: {hugim_mapping}")
         st.info(f"Preferences mapping: {prefs_mapping}")
 
@@ -148,11 +167,13 @@ def main():
         for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
             prefix_str = str(prefix)
             pref_period_cols.extend([col for col in prefs_df.columns if col.startswith(prefix_str + "_")])
+
         missing_hugim = find_missing(
             prefs_df[pref_period_cols],
             hugim_df,
             hug_col=hugim_mapping["HugName"]
         )
+
         if missing_hugim:
             st.warning(
                 f"These HugNames are referenced in preferences.csv but missing from hugim.csv and will be skipped:\n`{', '.join(missing_hugim)}`"
@@ -170,10 +191,12 @@ def main():
         else:
             if st.button("Run Allocation"):
                 st.session_state["allocation_run"] = True
+
                 mapped_hugim = hugim_df[
                     [hugim_mapping["HugName"], hugim_mapping["Capacity"], hugim_mapping["Minimum"]] + list(hugim_mapping["Periods"])
                 ]
                 mapped_hugim.to_csv("hugim.csv", index=False)
+
                 mapped_prefs = prefs_df.copy()
                 mapped_prefs.to_csv("preferences.csv", index=False)
 
@@ -185,6 +208,7 @@ def main():
                     run_allocation(campers, hug_data)
                     enforce_minimums_cancel_and_reallocate(campers, hug_data)
                     calculate_and_store_weekly_scores(campers)
+
                     save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
                     save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
                     save_stats(campers, hug_data, OUTPUT_STATS_FILE)
@@ -218,8 +242,8 @@ def main():
                         vals = df_assignments[how_col].value_counts()
                         for idx, count in vals.items():
                             pref_counts[idx] = pref_counts.get(idx, 0) + count
-
                     total_assignments = sum(pref_counts.values())
+
                     summary_rows = []
                     order = ['Pref_1','Pref_2','Pref_3','Pref_4','Pref_5','Random','Forced_minimum', '']
                     order_labels = ['1st Choice', '2nd Choice', '3rd Choice', '4th Choice', '5th Choice', 'Random', 'Forced Minimum', 'Unassigned']
@@ -227,6 +251,7 @@ def main():
                         cnt = pref_counts.get(pref, 0)
                         pct = 100 * cnt / total_assignments if total_assignments else 0
                         summary_rows.append({"Assignment Type": label, "Count": cnt, "Percent": f"{pct:.1f}%"})
+
                     summary_df = pd.DataFrame(summary_rows)
                     st.dataframe(summary_df)
 
@@ -264,7 +289,6 @@ def main():
                     # =========================
                     # 5. Unassigned Campers (with reason breakdown)
                     # =========================
-
                     if OUTPUT_UNASSIGNED_FILE.exists() and OUTPUT_UNASSIGNED_FILE.stat().st_size > 0:
                         df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
                         st.subheader("🚫 Unassigned Campers")
@@ -276,7 +300,6 @@ def main():
                             file_name=OUTPUT_UNASSIGNED_FILE.name,
                             mime="text/csv"
                         )
-
                         # Reason Breakdown
                         st.write("### Unassignment Reasons Breakdown")
                         reason_counts = df_unassigned['Reason'].value_counts()
@@ -289,7 +312,6 @@ def main():
                     # =========================
                     if ready and 'missing_hugim' in locals() and missing_hugim:
                         st.subheader("❌ Cancelled or Unavailable Hugim Analysis")
-
                         for hug in missing_hugim:
                             campers_wanted = []
                             for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
@@ -319,6 +341,7 @@ def main():
 
                     if missing_hugim:
                         st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
+
                 except Exception as e:
                     import traceback
                     st.error(f"Error during allocation: {e}")
@@ -326,7 +349,4 @@ def main():
                         st.code(traceback.format_exc())
 
     st.markdown("---")
-    st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
-
-if __name__ == "__main__":
-    main()
+    st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:d
