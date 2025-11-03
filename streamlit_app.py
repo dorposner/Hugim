@@ -24,6 +24,22 @@ from data_helpers import (
     to_csv_download,
     enforce_minimums_cancel_and_reallocate
 )
+
+def init_session():
+    """Initialize session_state keys so Streamlit won't lose data after refresh."""
+    keys = [
+        "campers",
+        "hug_data",
+        "assignments_df",
+        "stats_df",
+        "unassigned_df"
+    ]
+    for key in keys:
+        if key not in st.session_state:
+            st.session_state[key] = None
+
+init_session()
+
 # ---- Output paths for this app session ----
 OUTPUT_ASSIGNMENTS_FILE = Path("assignments_output.csv")
 OUTPUT_STATS_FILE = Path("stats_output.csv")
@@ -328,7 +344,36 @@ def main():
                                 with st.expander(f"See list of campers who wanted '{hug}'"):
                                     st.write(', '.join(campers_wanted))
 
+                    # 🔹 Save all results into session_state
+                    st.session_state["campers"] = campers
+                    st.session_state["hug_data"] = hug_data
+                    st.session_state["assignments_df"] = assignments_df
+                    st.session_state["stats_df"] = stats_df
+                    st.session_state["unassigned_df"] = unassigned_df
+
                     st.success("Allocation and report sections complete. Please review the summaries, download files as needed, or allow a rerun above if you wish to re-allocate.")
+
+                    if st.session_state["assignments_df"] is not None:
+                        st.subheader("📋 Assignments Results")
+                        st.dataframe(st.session_state["assignments_df"])
+                        st.download_button(
+                            "⬇️ Download Assignments CSV",
+                            data=st.session_state["assignments_df"].to_csv(index=False),
+                            file_name="assignments_output.csv",
+                            mime="text/csv"
+                        )
+
+                    if st.session_state["unassigned_df"] is not None:
+                        st.subheader("🚫 Unassigned Campers")
+                        st.dataframe(st.session_state["unassigned_df"])
+                        st.download_button(
+                            "⬇️ Download Unassigned CSV",
+                            data=st.session_state["unassigned_df"].to_csv(index=False),
+                            file_name="unassigned_campers_output.csv",
+                            mime="text/csv"
+                        )
+
+
 
                     # Optionally, summarize at a glance:
                     st.markdown(f"""
