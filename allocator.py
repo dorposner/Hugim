@@ -354,6 +354,7 @@ def main():
     hugim_mapping = {
         "HugName": "HugName",
         "Capacity": "Capacity",
+        "Minimum": "Minimum",
         "Periods": ["Aleph", "Beth", "Gimmel"]
     }
     prefs_mapping = {

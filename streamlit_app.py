@@ -22,7 +22,8 @@ from data_helpers import (
     find_missing,
     show_uploaded,
     to_csv_download,
-    enforce_minimums_cancel_and_reallocate
+    enforce_minimums_cancel_and_reallocate,
+    fill_minimums
 )
 
 def init_session():
@@ -205,6 +206,13 @@ def main():
                 if st.button("Allow Rerun"):
                     st.session_state["allocation_run"] = False
         else:
+            # Add UI selection for Minimums Strategy
+            strategy = st.radio(
+                "Under-enrolled Strategy:",
+                ("Cancel & Reallocate (Default)", "Force Fill"),
+                help="Cancel: Removes activities below minimum and moves campers. Force Fill: Adds random campers to meet minimums."
+            )
+
             if st.button("Run Allocation"):
                 st.session_state["allocation_run"] = True
 
@@ -222,7 +230,12 @@ def main():
                     st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
 
                     run_allocation(campers, hug_data)
-                    enforce_minimums_cancel_and_reallocate(campers, hug_data)
+
+                    if strategy.startswith("Cancel"):
+                        enforce_minimums_cancel_and_reallocate(campers, hug_data)
+                    else:
+                        fill_minimums(campers, hug_data)
+
                     calculate_and_store_weekly_scores(campers)
 
                     save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
