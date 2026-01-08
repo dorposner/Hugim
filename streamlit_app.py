@@ -86,6 +86,8 @@ def main():
         - Preference columns for each period (such as Aleph_1, Aleph_2, ..., Gimmel_5)
         """)
 
+    st.info("💡 Need sample data? Use the **[File Generator](/generate_files)** page to create random test files.")
+
     st.write("Upload your CSV files below. You can preview and edit before running allocation:")
     hugim_file = st.file_uploader("Upload hugim.csv", type=["csv"])
     prefs_file = st.file_uploader("Upload preferences.csv", type=["csv"])
