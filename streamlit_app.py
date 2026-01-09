@@ -128,9 +128,9 @@ def main():
         min_col = st.selectbox("Column for Minimum Campers (must join):", hugim_cols, index=minimum_idx, key="min_campers")
 
         period_cols = st.multiselect(
-            "Columns for periods (choose 3, e.g. Aleph, Beth, Gimmel):",
+            "Columns for periods (e.g. Morning, Afternoon):",
             hugim_cols,
-            default=[col for col in hugim_cols if col.lower() in ["aleph", "beth", "gimmel"]]
+            default=[col for col in hugim_cols if col.lower() in ["aleph", "beth", "gimmel", "morning", "afternoon", "block a", "block b"]] if "aleph" in [c.lower() for c in hugim_cols] else []
         )
 
         # NEW: Show detected periods and allow adding a new period (UI-only)
@@ -161,6 +161,15 @@ def main():
         camperid_col = st.selectbox("Column for Camper ID:", pref_cols, index=camperid_idx, key="camperid")
 
         period_prefixes = set(c.split("_")[0] for c in pref_cols if "_" in c)
+        # Informational: Max preferences
+        max_pref_count = 0
+        for prefix in period_prefixes:
+            count = len([c for c in pref_cols if c.startswith(prefix + "_")])
+            if count > max_pref_count:
+                max_pref_count = count
+        if max_pref_count > 0:
+            st.info(f"ℹ️ Detected up to {max_pref_count} preferences per period.")
+
         st.write("Match your periods:")
         period_map = {}
         for period in period_cols:

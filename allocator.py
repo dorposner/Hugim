@@ -351,18 +351,27 @@ def main():
     print('Loading data ...')
     # For CLI/manual runs, you’ll want to pass mappings or set up fixed ones
     # Here's a template (you can remove main if just using Streamlit)
+    # Generic example mapping:
     hugim_mapping = {
         "HugName": "HugName",
         "Capacity": "Capacity",
         "Minimum": "Minimum",
-        "Periods": ["Aleph", "Beth", "Gimmel"]
+        "Periods": ["Period_1", "Period_2"] # Example generic periods
     }
     prefs_mapping = {
         "CamperID": "CamperID",
-        "PeriodPrefixes": {"Aleph": "Aleph", "Beth": "Beth", "Gimmel": "Gimmel"}
+        "PeriodPrefixes": {"Period_1": "P1", "Period_2": "P2"} # Example generic prefixes
     }
-    hugim = load_hugim(HUGIM_DATA_FILE, mapping=hugim_mapping)
-    campers = load_preferences(PREFERENCES_DATA_FILE, mapping=prefs_mapping)
+
+    # NOTE: To run this via CLI, ensure HUGIM_DATA_FILE and PREFERENCES_DATA_FILE
+    # point to files matching the structure above, or update these mappings.
+
+    try:
+        hugim = load_hugim(HUGIM_DATA_FILE, mapping=hugim_mapping)
+        campers = load_preferences(PREFERENCES_DATA_FILE, mapping=prefs_mapping)
+    except Exception as e:
+        print(f"Error loading data with default CLI mappings: {e}")
+        return
 
     print('Running allocation...')
     run_allocation(campers, hugim)
