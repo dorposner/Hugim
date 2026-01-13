@@ -83,27 +83,15 @@ def create_sheet(camp_name, folder_id):
         st.error("Google credentials missing.")
         return None
 
-    # 1. Create the spreadsheet
+    # 1. Create the spreadsheet directly in the folder using Drive API
     file_metadata = {
-        'properties': {'title': camp_name}
+        'name': camp_name,
+        'parents': [folder_id],
+        'mimeType': 'application/vnd.google-apps.spreadsheet'
     }
     try:
-        spreadsheet = sheets_service.spreadsheets().create(body=file_metadata, fields='spreadsheetId').execute()
-        spreadsheet_id = spreadsheet.get('spreadsheetId')
-
-        # 2. Move it to the folder
-        # Retrieve the existing parents to remove them
-        file = drive_service.files().get(fileId=spreadsheet_id, fields='parents').execute()
-        previous_parents = ",".join(file.get('parents'))
-
-        drive_service.files().update(
-            fileId=spreadsheet_id,
-            addParents=folder_id,
-            removeParents=previous_parents,
-            fields='id, parents'
-        ).execute()
-
-        return spreadsheet_id
+        file = drive_service.files().create(body=file_metadata, fields='id').execute()
+        return file.get('id')
 
     except Exception as e:
         st.error(f"Error creating sheet: {e}")
