@@ -95,7 +95,11 @@ def create_sheet(camp_name, folder_id):
 
     except HttpError as e:
         if e.resp.status == 403:
-            st.error("Error creating sheet: Permission denied. Please ensure the 'Google Sheets API' and 'Google Drive API' are enabled in your Google Cloud Project.")
+            # Check for storage quota error
+            if "storageQuotaExceeded" in str(e):
+                st.error("Error creating sheet: Service Account storage is full. Please delete files from the Service Account's Drive or empty the trash.")
+            else:
+                st.error("Error creating sheet: Permission denied. Please ensure the 'Google Sheets API' and 'Google Drive API' are enabled in your Google Cloud Project.")
         else:
             st.error(f"Error creating sheet: {e}")
         return None
