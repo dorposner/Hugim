@@ -6,8 +6,7 @@ from pathlib import Path   # <<<< Add this!
 from data_helpers import fill_minimums
 from data_helpers import get_unassignment_reason
 
-PERIODS = None
-PREFERENCES_PER_PERIOD = 5
+# Global variables removed in favor of config injection
 
 HUGIM_DATA_FILE = 'hugim.csv'
 PREFERENCES_DATA_FILE = 'preferences.csv'
@@ -88,7 +87,9 @@ def load_hugim(path: str, mapping: dict):
 
 def load_preferences(path: str, mapping: dict):
     """
-    Returns: list of { 'CamperID': str, 'preferences': {period: [h1, h2, ...]}, ... }
+    Returns: (campers, max_pref_count)
+    campers: list of { 'CamperID': str, 'preferences': {period: [h1, h2, ...]}, ... }
+    max_pref_count: detected max preferences per period
     mapping: {"CamperID": ..., "PeriodPrefixes": {period_col: prefix_in_preferences_file}}
     """
     df = pd.read_csv(path)
@@ -99,8 +100,6 @@ def load_preferences(path: str, mapping: dict):
     for prefix in period_map.values():
         prefs = [col for col in df.columns if col.startswith(prefix+'_')]
         max_pref_count = max(max_pref_count, len(prefs))
-    global PREFERENCES_PER_PERIOD
-    PREFERENCES_PER_PERIOD = max_pref_count
 
     # Check if "score" column exists (case-insensitive)
     score_column = None
@@ -114,7 +113,7 @@ def load_preferences(path: str, mapping: dict):
         preferences = {}
         for period, prefix in period_map.items():
             prefs = []
-            for i in range(1, PREFERENCES_PER_PERIOD+1):
+            for i in range(1, max_pref_count+1):
                 colname = f"{prefix}_{i}"
                 if colname in row and pd.notna(row[colname]):
                     hug = str(row[colname]).strip()
@@ -138,13 +137,12 @@ def load_preferences(path: str, mapping: dict):
             'assignments': {period: {'hug': None, 'how': None} for period in period_map},
             'score_history': [score_val] if score_val else []  # <-- starts with previous score
         })
-    global PERIODS
-    PERIODS = list(period_map.keys())
-    return campers
+
+    return campers, max_pref_count
 
 # ------------- ALLOCATION ENGINE --------------
             
-def assign_period(campers, hugim_for_period, period):
+def assign_period(campers, hugim_for_period, period, max_prefs=5):
     periods = list(campers[0]['assignments'].keys())
 
     # Gather all previous assignments for each camper for cross-period check
@@ -192,7 +190,7 @@ def assign_period(campers, hugim_for_period, period):
         # Update unassigned list for next preference round
         unassigned_list = [i for i in unassigned_list if campers[i]['assignments'][period]['hug'] is None]
     # Try preferences 4-5 (or however many)
-    for pref_rank in range(3, PREFERENCES_PER_PERIOD):
+    for pref_rank in range(3, max_prefs):
         demanders = defaultdict(list)
         for idx in unassigned_list:
             camper = campers[idx]
@@ -247,9 +245,9 @@ def calculate_and_store_weekly_scores(campers):
             # You may also decide if you want to count 'Random', 'Forced_minimum', etc as 0
         camper['score_history'].append(score)
 
-def run_allocation(campers, hugim):
-    for period in PERIODS:
-        assign_period(campers, hugim[period], period)
+def run_allocation(campers, hugim, periods, max_prefs=5):
+    for period in periods:
+        assign_period(campers, hugim[period], period, max_prefs)
     fill_minimums(campers, hugim)
 
 # ---------- OUTPUT HELPERS ------------
@@ -368,13 +366,13 @@ def main():
 
     try:
         hugim = load_hugim(HUGIM_DATA_FILE, mapping=hugim_mapping)
-        campers = load_preferences(PREFERENCES_DATA_FILE, mapping=prefs_mapping)
+        campers, max_prefs = load_preferences(PREFERENCES_DATA_FILE, mapping=prefs_mapping)
     except Exception as e:
         print(f"Error loading data with default CLI mappings: {e}")
         return
 
     print('Running allocation...')
-    run_allocation(campers, hugim)
+    run_allocation(campers, hugim, list(prefs_mapping['PeriodPrefixes'].keys()), max_prefs)
 
     print('Saving results...')
     save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
