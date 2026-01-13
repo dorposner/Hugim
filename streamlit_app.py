@@ -127,15 +127,16 @@ def main():
                      try:
                          # Get selected periods
                          periods = st.session_state.get("periods_selected", [])
-                         # We should also account for any manually added periods if possible,
-                         # but since they aren't fully persisted in session state as a list separate from the multiselect default...
-                         # For now we save what is in 'periods_selected'.
 
+                         # Capture any prefixes for periods that might have been added manually
+                         # (We scan st.session_state for any key starting with pref_prefix_)
                          prefixes = {}
-                         for p in periods:
-                             key = f"pref_prefix_{p}"
-                             if key in st.session_state:
-                                 prefixes[p] = st.session_state[key]
+                         all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
+                         for key in all_period_keys:
+                             p_name = key.replace("pref_prefix_", "")
+                             prefixes[p_name] = st.session_state[key]
+                             if p_name not in periods:
+                                 periods.append(p_name)
 
                          config_data = {
                              'config': {
