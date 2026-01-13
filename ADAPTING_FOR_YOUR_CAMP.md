@@ -66,3 +66,40 @@ CamperID,P1_1,P1_2,P1_3,P2_1,P2_2,P2_3
     *   Select your Period columns (e.g., `Period_1`, `Period_2`).
     *   Map `Period_1` to prefix `P1` and `Period_2` to prefix `P2`.
 4.  Click **Run Allocation**.
+
+## 5. Google Sheets Persistence Configuration
+
+To enable saving and loading camp configurations to Google Drive, you must configure the secrets.
+
+### Step 1: Create a Google Drive Folder
+1.  Create a folder in Google Drive.
+2.  Note the **Folder ID** from the URL (the string of characters at the end).
+    *   Example: `https://drive.google.com/drive/folders/12345ABCDE...` -> ID is `12345ABCDE...`
+
+### Step 2: Set up a Google Service Account
+1.  Go to the Google Cloud Console.
+2.  Create a new Service Account.
+3.  Create and download a JSON key for this account.
+4.  **Important:** In Google Drive, share your folder with the Service Account's email address (found in the JSON file), giving it **Editor** access.
+
+### Step 3: Configure `secrets.toml`
+Create a file named `.streamlit/secrets.toml` in your project directory and add the following:
+
+```toml
+[gcp_service_account]
+type = "service_account"
+project_id = "..."
+private_key_id = "..."
+private_key = "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+client_email = "..."
+client_id = "..."
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/..."
+
+[drive]
+folder_id = "YOUR_FOLDER_ID_HERE"
+```
+
+Replace the values in `[gcp_service_account]` with those from your downloaded JSON key.

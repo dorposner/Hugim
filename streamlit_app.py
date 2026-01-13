@@ -1,11 +1,16 @@
 import streamlit as st
 import pandas as pd
 from pathlib import Path
+import googlesheets  # NEW: Import the Google Sheets module
+import importlib
+importlib.reload(googlesheets) # Force reload to ensure latest logic is used
+
 st.set_page_config(
     page_title="Camp Hugim Allocator",
     page_icon="🏕️",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
+
 from allocator import (
     load_hugim,
     load_preferences,
@@ -33,7 +38,9 @@ def init_session():
         "hug_data",
         "assignments_df",
         "stats_df",
-        "unassigned_df"
+        "unassigned_df",
+        "pending_config", # NEW: For config loading
+        "current_camp_name" # NEW: Track camp name
     ]
     for key in keys:
         if key not in st.session_state:
@@ -70,6 +77,107 @@ def main():
         st.session_state["allocation_run"] = False
     if "last_upload_key" not in st.session_state:
         st.session_state["last_upload_key"] = ""
+
+    # ---------------------------------------------------------
+    # NEW: SIDEBAR FOR CAMP CONFIGURATION
+    # ---------------------------------------------------------
+    st.sidebar.title("Camp Configuration")
+    camp_name = st.sidebar.text_input("Camp Name / ID", value=st.session_state.get("current_camp_name") or "")
+
+    # Load Logic
+    if camp_name and camp_name != st.session_state.get("current_camp_name"):
+        st.session_state["current_camp_name"] = camp_name
+        folder_id = googlesheets.get_folder_id()
+        if folder_id:
+            with st.spinner(f"Searching for configuration for '{camp_name}'..."):
+                sheet_id = googlesheets.find_sheet(camp_name, folder_id)
+                if sheet_id:
+                    config = googlesheets.read_config(sheet_id)
+                    if config:
+                        st.session_state["pending_config"] = config
+                        st.session_state["config_sheet_id"] = sheet_id
+                        st.sidebar.success(f"Configuration loaded!")
+                else:
+                    st.session_state["config_sheet_id"] = None
+                    st.sidebar.info("No existing configuration found. A new sheet will be created upon save.")
+        else:
+            st.sidebar.warning("Google Drive Folder ID not configured.")
+
+    # Save Logic
+    if st.sidebar.button("Save Camp Configuration"):
+        if not camp_name:
+            st.sidebar.error("Please enter a Camp Name.")
+        elif "hugname" not in st.session_state:
+            st.sidebar.error("Please configure the columns and periods before saving.")
+        else:
+            folder_id = googlesheets.get_folder_id()
+            if not folder_id:
+                 st.sidebar.error("Drive Folder ID not configured in secrets.")
+            else:
+                 # Check if sheet exists or create new
+                 sheet_id = st.session_state.get("config_sheet_id")
+                 if not sheet_id:
+                     sheet_id = googlesheets.find_sheet(camp_name, folder_id)
+
+                 if not sheet_id:
+                     with st.sidebar.status("Creating new Google Sheet..."):
+                         sheet_id = googlesheets.create_sheet(camp_name, folder_id)
+                         st.session_state["config_sheet_id"] = sheet_id
+
+                 if sheet_id:
+                     # Gather data from session state
+                     try:
+                         # Get selected periods
+                         periods = st.session_state.get("periods_selected", [])
+
+                         # Capture any prefixes for periods that might have been added manually
+                         # (We scan st.session_state for any key starting with pref_prefix_)
+                         prefixes = {}
+                         all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
+                         for key in all_period_keys:
+                             p_name = key.replace("pref_prefix_", "")
+                             prefixes[p_name] = st.session_state[key]
+                             if p_name not in periods:
+                                 periods.append(p_name)
+
+                         config_data = {
+                             'config': {
+                                 'col_hug_name': st.session_state.get("hugname"),
+                                 'col_capacity': st.session_state.get("capacity"),
+                                 'col_minimum': st.session_state.get("min_campers"),
+                                 'col_camper_id': st.session_state.get("camperid"),
+                                 'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
+                             },
+                             'periods': periods,
+                             'preference_prefixes': prefixes
+                         }
+
+                         with st.sidebar.status("Saving to Google Sheets..."):
+                             success = googlesheets.save_config(sheet_id, config_data)
+                             if success:
+                                 st.sidebar.success("Configuration saved successfully!")
+                             else:
+                                 st.sidebar.error("Failed to save configuration.")
+                     except Exception as e:
+                         st.sidebar.error(f"Error gathering configuration: {e}")
+
+    # Reset Logic
+    if st.sidebar.button("Reset Configuration"):
+        st.session_state["pending_config"] = None
+        st.session_state["current_camp_name"] = None
+        keys_to_clear = ["hugname", "capacity", "min_campers", "camperid", "periods_selected", "config_sheet_id"]
+        for k in keys_to_clear:
+            if k in st.session_state:
+                del st.session_state[k]
+        # Also clear prefix keys
+        for k in list(st.session_state.keys()):
+            if k.startswith("pref_prefix_"):
+                del st.session_state[k]
+        st.rerun()
+
+    # ---------------------------------------------------------
+    # MAIN APP
+    # ---------------------------------------------------------
 
     st.title("Camp Hugim Allocation Web App")
 
@@ -117,8 +225,46 @@ def main():
     if ready:
         st.markdown("## 1. Match your columns")
         hugim_cols = list(hugim_df.columns)
+        pref_cols = list(prefs_df.columns)
 
-        # Auto-detect column indices
+        # ---------------------------------------------------------
+        # APPLY LOADED CONFIG (if available and not yet applied)
+        # ---------------------------------------------------------
+        if st.session_state.get("pending_config"):
+            config = st.session_state["pending_config"]
+            cfg_dict = config.get('config', {})
+
+            # Helper to check validity
+            def set_if_valid(key, val, options):
+                if val in options:
+                    st.session_state[key] = val
+
+            set_if_valid("hugname", cfg_dict.get('col_hug_name'), hugim_cols)
+            set_if_valid("capacity", cfg_dict.get('col_capacity'), hugim_cols)
+            set_if_valid("min_campers", cfg_dict.get('col_minimum'), hugim_cols)
+            set_if_valid("camperid", cfg_dict.get('col_camper_id'), pref_cols)
+
+            # Periods
+            saved_periods = config.get('periods', [])
+            valid_periods = [p for p in saved_periods if p in hugim_cols]
+            if valid_periods:
+                st.session_state["periods_selected"] = valid_periods
+
+            # Prefixes
+            saved_prefixes = config.get('preference_prefixes', {})
+            # We can set these even if widget not created yet, Streamlit will pick them up
+            for p, prefix in saved_prefixes.items():
+                # We should verify if prefix is roughly valid?
+                # Ideally we check against sorted(period_prefixes) derived below,
+                # but we can just set it and let the user correct if needed.
+                st.session_state[f"pref_prefix_{p}"] = prefix
+
+            del st.session_state["pending_config"]
+            st.rerun()
+
+        # ---------------------------------------------------------
+
+        # Auto-detect column indices (defaults)
         hugname_idx = find_best_column_match(hugim_cols, ["hugname", "hug_name", "activity", "activityname", "name"])
         capacity_idx = find_best_column_match(hugim_cols, ["capacity", "cap", "max", "maximum"])
         minimum_idx = find_best_column_match(hugim_cols, ["minimum", "min", "min_campers"])
@@ -130,7 +276,8 @@ def main():
         period_cols = st.multiselect(
             "Columns for periods (e.g. Morning, Afternoon):",
             hugim_cols,
-            default=[col for col in hugim_cols if col.lower() in ["aleph", "beth", "gimmel", "morning", "afternoon", "block a", "block b"]] if "aleph" in [c.lower() for c in hugim_cols] else []
+            default=[col for col in hugim_cols if col.lower() in ["aleph", "beth", "gimmel", "morning", "afternoon", "block a", "block b"]] if "aleph" in [c.lower() for c in hugim_cols] else [],
+            key="periods_selected"
         )
 
         # NEW: Show detected periods and allow adding a new period (UI-only)
@@ -140,10 +287,13 @@ def main():
         else:
             st.warning("No period columns selected. Please choose the period columns above.")
 
+        # Note: 'new_period' is not persisted in config unless it becomes a column or is added to multiselect
         new_period = st.text_input("Add a new period name (optional):", value="", placeholder="e.g., Dalet")
         if new_period and new_period.strip():
             new_period_clean = new_period.strip()
             if new_period_clean not in period_cols:
+                # We can't easily append to the multiselect output variable to influence the options,
+                # but we can append to the list used for mapping.
                 period_cols.append(new_period_clean)
                 st.success(f"New period '{new_period_clean}' has been added to the list (UI only).")
             else:
@@ -156,7 +306,6 @@ def main():
             "Periods": period_cols
         }
 
-        pref_cols = list(prefs_df.columns)
         camperid_idx = find_best_column_match(pref_cols, ["camperid", "camper_id", "student_id", "studentid", "full_name", "fullname", "name", "Full Name", "id"])
         camperid_col = st.selectbox("Column for Camper ID:", pref_cols, index=camperid_idx, key="camperid")
 
@@ -169,6 +318,8 @@ def main():
                 max_pref_count = count
         if max_pref_count > 0:
             st.info(f"ℹ️ Detected up to {max_pref_count} preferences per period.")
+
+        st.session_state["detected_max_prefs"] = max_pref_count
 
         st.write("Match your periods:")
         period_map = {}
@@ -237,10 +388,12 @@ def main():
 
                 try:
                     hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
-                    campers = load_preferences("preferences.csv", mapping=prefs_mapping)
+                    # UPDATED: Receive max_prefs
+                    campers, max_prefs = load_preferences("preferences.csv", mapping=prefs_mapping)
                     st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
 
-                    run_allocation(campers, hug_data)
+                    # UPDATED: Pass periods and max_prefs
+                    run_allocation(campers, hug_data, list(period_map.keys()), max_prefs)
 
                     if strategy.startswith("Cancel"):
                         enforce_minimums_cancel_and_reallocate(campers, hug_data)
