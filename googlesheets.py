@@ -83,7 +83,7 @@ def create_sheet(camp_name, folder_id):
         st.error("Google credentials missing.")
         return None
 
-    # 1. Create the spreadsheet directly in the folder using Drive API
+    # Create the spreadsheet directly in the target folder using Drive API
     file_metadata = {
         'name': camp_name,
         'parents': [folder_id],
@@ -93,6 +93,16 @@ def create_sheet(camp_name, folder_id):
         file = drive_service.files().create(body=file_metadata, fields='id').execute()
         return file.get('id')
 
+    except HttpError as e:
+        if e.resp.status == 403:
+            # Check for storage quota error
+            if "storageQuotaExceeded" in str(e):
+                st.error("Error creating sheet: Service Account storage is full. Please delete files from the Service Account's Drive or empty the trash.")
+            else:
+                st.error("Error creating sheet: Permission denied. Please ensure the 'Google Sheets API' and 'Google Drive API' are enabled in your Google Cloud Project.")
+        else:
+            st.error(f"Error creating sheet: {e}")
+        return None
     except Exception as e:
         st.error(f"Error creating sheet: {e}")
         return None
