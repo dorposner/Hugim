@@ -106,6 +106,8 @@ def main():
                     st.session_state["hugim_df"] = config['hugim_df']
                 if 'prefs_df' in config and not config['prefs_df'].empty:
                     st.session_state["prefs_df"] = config['prefs_df']
+                if 'assignments_df' in config and not config['assignments_df'].empty:
+                    st.session_state["assignments_df"] = config['assignments_df']
                 st.sidebar.success(f"Configuration loaded!")
             else:
                 st.sidebar.info("No existing configuration found. A new one will be created upon save.")
@@ -146,9 +148,10 @@ def main():
                  # Get current dataframes
                  hugim_df_save = st.session_state.get("hugim_df")
                  prefs_df_save = st.session_state.get("prefs_df")
+                 assignments_df_save = st.session_state.get("assignments_df")
 
                  with st.sidebar.status("Saving to Master Spreadsheet..."):
-                     success = googlesheets.save_config(camp_name, config_data, hugim_df_save, prefs_df_save)
+                     success = googlesheets.save_camp_state(camp_name, config_data, hugim_df_save, prefs_df_save, assignments_df_save)
                      if success:
                          st.sidebar.success("Configuration and data saved successfully!")
                      else:

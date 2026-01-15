@@ -67,7 +67,8 @@ def get_tab_names(camp_name):
         'periods': f"{camp_name}_periods",
         'preference_prefixes': f"{camp_name}_preference_prefixes",
         'hugim_data': f"{camp_name}_hugim_data",
-        'camper_prefs': f"{camp_name}_camper_prefs"
+        'camper_prefs': f"{camp_name}_camper_prefs",
+        'assignments': f"{camp_name}_assignments"
     }
 
 def read_config(camp_name):
@@ -103,6 +104,7 @@ def read_config(camp_name):
         add_range('prefixes', tabs['preference_prefixes'], 'A:B')
         add_range('hugim', tabs['hugim_data'], 'A:ZZ')
         add_range('prefs', tabs['camper_prefs'], 'A:ZZ')
+        add_range('assignments', tabs['assignments'], 'A:ZZ')
 
         if not ranges:
             return {}
@@ -170,6 +172,15 @@ def read_config(camp_name):
                     else:
                         config_data['prefs_df'] = pd.DataFrame(columns=header)
 
+            elif key == 'assignments':
+                if values:
+                    header = values[0]
+                    data = values[1:]
+                    if data:
+                        config_data['assignments_df'] = pd.DataFrame(data, columns=header)
+                    else:
+                        config_data['assignments_df'] = pd.DataFrame(columns=header)
+
         return config_data
 
     except HttpError as e:
@@ -179,9 +190,9 @@ def read_config(camp_name):
         st.error(f"Unexpected error reading configuration: {e}")
         return None
 
-def save_config(camp_name, config_data, hugim_df=None, prefs_df=None):
+def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assignments_df=None):
     """
-    Writes configuration and optionally dataframes to the Master Google Sheet.
+    Writes configuration and optionally dataframes (including assignments) to the Master Google Sheet.
     config_data should match the structure returned by read_config.
     """
     if not GOOGLE_LIB_AVAILABLE:
@@ -232,6 +243,12 @@ def save_config(camp_name, config_data, hugim_df=None, prefs_df=None):
         data_payloads.append({'range': f"'{tabs['camper_prefs']}'!A1", 'values': prefs_rows})
         required_titles.append(tabs['camper_prefs'])
 
+    # 6. assignments tab
+    if assignments_df is not None:
+        assignments_rows = [assignments_df.columns.tolist()] + assignments_df.fillna('').astype(str).values.tolist()
+        data_payloads.append({'range': f"'{tabs['assignments']}'!A1", 'values': assignments_rows})
+        required_titles.append(tabs['assignments'])
+
     body = {
         'valueInputOption': 'RAW',
         'data': data_payloads
@@ -268,5 +285,5 @@ def save_config(camp_name, config_data, hugim_df=None, prefs_df=None):
         return True
 
     except Exception as e:
-        st.error(f"Raw Error from Google (save_config): {e}")
+        st.error(f"Raw Error from Google (save_camp_state): {e}")
         return False
