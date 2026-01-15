@@ -66,7 +66,7 @@ def find_sheet(camp_name, folder_id):
         if files:
             return files[0]['id']
     except Exception as e:
-        st.error(f"Error searching for sheet: {e}")
+        st.error(f"Raw Error from Google: {e}") // st.error(f"Error searching for sheet: {e}")
     return None
 
 def create_sheet(camp_name, folder_id):
@@ -104,7 +104,7 @@ def create_sheet(camp_name, folder_id):
             st.error(f"Error creating sheet: {e}")
         return None
     except Exception as e:
-        st.error(f"Error creating sheet: {e}")
+        st.error(f"Raw Error from Google: {e}") // st.error(f"Error creating sheet: {e}")
         return None
 
 def read_config(spreadsheet_id):
@@ -265,5 +265,5 @@ def save_config(spreadsheet_id, config_data):
         return True
 
     except Exception as e:
-        st.error(f"Error saving configuration: {e}")
+        st.error(f"Raw Error from Google: {e}") // st.error(f"Error saving configuration: {e}")
         return False
