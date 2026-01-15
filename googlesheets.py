@@ -66,7 +66,7 @@ def find_sheet(camp_name, folder_id):
         if files:
             return files[0]['id']
     except Exception as e:
-        st.error(f"Raw Error from Google: {e}") // st.error(f"Error searching for sheet: {e}")
+        st.error(f"Raw Error from Google (find_sheet): {e}")
     return None
 
 def create_sheet(camp_name, folder_id):
@@ -94,23 +94,22 @@ def create_sheet(camp_name, folder_id):
         return file.get('id')
 
     except HttpError as e:
+        st.error(f"Raw Error from Google: {e}")
         if e.resp.status == 403:
             # Check for storage quota error
             if "storageQuotaExceeded" in str(e):
                 st.error("Error creating sheet: Service Account storage is full. Please delete files from the Service Account's Drive or empty the trash.")
             else:
                 st.error("Error creating sheet: Permission denied. Please ensure the 'Google Sheets API' and 'Google Drive API' are enabled in your Google Cloud Project.")
-        else:
-            st.error(f"Error creating sheet: {e}")
         return None
     except Exception as e:
-        st.error(f"Raw Error from Google: {e}") // st.error(f"Error creating sheet: {e}")
+        st.error(f"Raw Error from Google (create_sheet): {e}")
         return None
 
 def read_config(spreadsheet_id):
     """
-    Reads configuration from the Google Sheet.
-    Returns a dict with 'config', 'periods', 'preference_prefixes'.
+    Reads configuration and data from the Google Sheet.
+    Returns a dict with 'config', 'periods', 'preference_prefixes', 'hugim_df', 'prefs_df'.
     """
     if not GOOGLE_LIB_AVAILABLE:
         return None
@@ -120,50 +119,82 @@ def read_config(spreadsheet_id):
         return None
 
     try:
-        # Read all relevant ranges. Assuming standard tab names.
-        ranges = ['config!A:B', 'periods!A:A', 'preference_prefixes!A:B']
+        # Get sheet metadata to check which sheets exist
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        existing_titles = [s['properties']['title'] for s in sheet_metadata.get('sheets', [])]
+
+        ranges = []
+        range_map = {} # Map index to key
+
+        # Helper to add range if sheet exists
+        def add_range(key, sheet_name, cell_range):
+            if sheet_name in existing_titles:
+                ranges.append(f"{sheet_name}!{cell_range}")
+                range_map[len(ranges)-1] = key
+
+        add_range('config', 'config', 'A:B')
+        add_range('periods', 'periods', 'A:A')
+        add_range('prefixes', 'preference_prefixes', 'A:B')
+        add_range('hugim', 'hugim_data', 'A:ZZ')
+        add_range('prefs', 'camper_prefs', 'A:ZZ')
+
+        if not ranges:
+            return {}
+
         result = sheets_service.spreadsheets().values().batchGet(
             spreadsheetId=spreadsheet_id, ranges=ranges).execute()
         value_ranges = result.get('valueRanges', [])
 
         config_data = {}
 
-        # 1. config tab
-        config_values = value_ranges[0].get('values', [])
-        config_dict = {}
-        if config_values:
-            # Skip header if it exists and looks like key/value
-            start_row = 1 if len(config_values) > 0 and config_values[0][0].lower() == 'key' else 0
-            for row in config_values[start_row:]:
-                if len(row) >= 2:
-                    val = row[1]
-                    # Try to convert to int if possible
-                    try:
-                        val = int(val)
-                    except ValueError:
-                        pass
-                    config_dict[row[0]] = val
-        config_data['config'] = config_dict
+        # Process results
+        for i, val_range in enumerate(value_ranges):
+            key = range_map.get(i)
+            values = val_range.get('values', [])
 
-        # 2. periods tab
-        periods_values = value_ranges[1].get('values', [])
-        periods_list = []
-        if periods_values:
-            start_row = 1 if len(periods_values) > 0 and periods_values[0][0].lower() == 'period_name' else 0
-            for row in periods_values[start_row:]:
-                if row:
-                    periods_list.append(row[0])
-        config_data['periods'] = periods_list
+            if key == 'config':
+                config_dict = {}
+                if values:
+                    start_row = 1 if len(values) > 0 and values[0][0].lower() == 'key' else 0
+                    for row in values[start_row:]:
+                        if len(row) >= 2:
+                            val = row[1]
+                            try:
+                                val = int(val)
+                            except ValueError:
+                                pass
+                            config_dict[row[0]] = val
+                config_data['config'] = config_dict
 
-        # 3. preference_prefixes tab
-        prefixes_values = value_ranges[2].get('values', [])
-        prefixes_dict = {}
-        if prefixes_values:
-            start_row = 1 if len(prefixes_values) > 0 and prefixes_values[0][0].lower() == 'period_name' else 0
-            for row in prefixes_values[start_row:]:
-                if len(row) >= 2:
-                    prefixes_dict[row[0]] = row[1]
-        config_data['preference_prefixes'] = prefixes_dict
+            elif key == 'periods':
+                periods_list = []
+                if values:
+                    start_row = 1 if len(values) > 0 and values[0][0].lower() == 'period_name' else 0
+                    for row in values[start_row:]:
+                        if row:
+                            periods_list.append(row[0])
+                config_data['periods'] = periods_list
+
+            elif key == 'prefixes':
+                prefixes_dict = {}
+                if values:
+                    start_row = 1 if len(values) > 0 and values[0][0].lower() == 'period_name' else 0
+                    for row in values[start_row:]:
+                        if len(row) >= 2:
+                            prefixes_dict[row[0]] = row[1]
+                config_data['preference_prefixes'] = prefixes_dict
+
+            elif key == 'hugim':
+                if values:
+                    header = values[0]
+                    data = values[1:]
+                    config_data['hugim_df'] = pd.DataFrame(data, columns=header)
+
+            elif key == 'prefs':
+                if values:
+                    header = values[0]
+                    data = values[1:]
+                    config_data['prefs_df'] = pd.DataFrame(data, columns=header)
 
         return config_data
 
@@ -174,9 +205,9 @@ def read_config(spreadsheet_id):
         st.error(f"Unexpected error reading configuration: {e}")
         return None
 
-def save_config(spreadsheet_id, config_data):
+def save_config(spreadsheet_id, config_data, hugim_df=None, prefs_df=None):
     """
-    Writes configuration to the Google Sheet.
+    Writes configuration and optionally dataframes to the Google Sheet.
     config_data should match the structure returned by read_config.
     """
     if not GOOGLE_LIB_AVAILABLE:
@@ -205,27 +236,37 @@ def save_config(spreadsheet_id, config_data):
     for p, prefix in config_data.get('preference_prefixes', {}).items():
         prefixes_rows.append([str(p), str(prefix)])
 
-    data = [
+    data_payloads = [
         {'range': 'config!A1', 'values': config_rows},
         {'range': 'periods!A1', 'values': periods_rows},
         {'range': 'preference_prefixes!A1', 'values': prefixes_rows}
     ]
 
+    required_titles = ['config', 'periods', 'preference_prefixes']
+
+    # 4. hugim_data tab
+    if hugim_df is not None:
+        hugim_rows = [hugim_df.columns.tolist()] + hugim_df.fillna('').astype(str).values.tolist()
+        data_payloads.append({'range': 'hugim_data!A1', 'values': hugim_rows})
+        required_titles.append('hugim_data')
+
+    # 5. camper_prefs tab
+    if prefs_df is not None:
+        prefs_rows = [prefs_df.columns.tolist()] + prefs_df.fillna('').astype(str).values.tolist()
+        data_payloads.append({'range': 'camper_prefs!A1', 'values': prefs_rows})
+        required_titles.append('camper_prefs')
+
     body = {
         'valueInputOption': 'RAW',
-        'data': data
+        'data': data_payloads
     }
 
     try:
         # First, ensure sheets exist.
-        # We'll just try to write. If tabs don't exist, we might need to create them.
-        # But `batchUpdate` with `addSheet` is complex to check existence.
-        # Simple approach: Check sheet properties first.
         sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
         existing_titles = [s['properties']['title'] for s in sheet_metadata.get('sheets', [])]
 
         requests = []
-        required_titles = ['config', 'periods', 'preference_prefixes']
         for title in required_titles:
             if title not in existing_titles:
                 requests.append({'addSheet': {'properties': {'title': title}}})
@@ -236,27 +277,13 @@ def save_config(spreadsheet_id, config_data):
                 body={'requests': requests}
             ).execute()
 
-        # Now write data (this clears existing data in the range and writes new)
-        # Note: update logic doesn't clear the whole sheet, just the range.
-        # If the list shrank, we might have leftover rows.
-        # Better to clear first or overwrite with empty strings if needed.
-        # For simplicity, we'll assume the list grows or stays similar,
-        # but to be safe, let's clear the sheets.
-
-        clear_requests = []
-        for title in required_titles:
-             # Find sheetId
-            sheet_id_num = next(s['properties']['sheetId'] for s in sheet_metadata.get('sheets', []) if s['properties']['title'] == title)
-            # Actually we can re-fetch metadata if we added sheets, but let's just use range names for clear.
-            # wait, spreadsheets().values().clear() works on ranges.
-            pass
-
-        # We will use batchClear
+        # Clear existing content before writing
         sheets_service.spreadsheets().values().batchClear(
             spreadsheetId=spreadsheet_id,
-            body={'ranges': [f'{t}!A:Z' for t in required_titles]}
+            body={'ranges': [f'{t}!A:ZZ' for t in required_titles]}
         ).execute()
 
+        # Write new content
         sheets_service.spreadsheets().values().batchUpdate(
             spreadsheetId=spreadsheet_id,
             body=body
@@ -265,5 +292,5 @@ def save_config(spreadsheet_id, config_data):
         return True
 
     except Exception as e:
-        st.error(f"Raw Error from Google: {e}") // st.error(f"Error saving configuration: {e}")
+        st.error(f"Raw Error from Google (save_config): {e}")
         return False

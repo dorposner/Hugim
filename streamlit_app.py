@@ -40,11 +40,16 @@ def init_session():
         "stats_df",
         "unassigned_df",
         "pending_config", # NEW: For config loading
-        "current_camp_name" # NEW: Track camp name
+        "current_camp_name", # NEW: Track camp name
+        "hugim_df",
+        "prefs_df"
     ]
     for key in keys:
         if key not in st.session_state:
             st.session_state[key] = None
+
+    if "uploader_id" not in st.session_state:
+        st.session_state["uploader_id"] = 0
 
 init_session()
 
@@ -87,6 +92,11 @@ def main():
     # Load Logic
     if camp_name and camp_name != st.session_state.get("current_camp_name"):
         st.session_state["current_camp_name"] = camp_name
+        # Reset uploaders when switching camp
+        st.session_state["uploader_id"] += 1
+        st.session_state["hugim_df"] = None
+        st.session_state["prefs_df"] = None
+
         folder_id = googlesheets.get_folder_id()
         if folder_id:
             with st.spinner(f"Searching for configuration for '{camp_name}'..."):
@@ -96,6 +106,13 @@ def main():
                     if config:
                         st.session_state["pending_config"] = config
                         st.session_state["config_sheet_id"] = sheet_id
+
+                        # Load data if available
+                        if 'hugim_df' in config:
+                            st.session_state["hugim_df"] = config['hugim_df']
+                        if 'prefs_df' in config:
+                            st.session_state["prefs_df"] = config['prefs_df']
+
                         st.sidebar.success(f"Configuration loaded!")
                 else:
                     st.session_state["config_sheet_id"] = None
@@ -152,10 +169,14 @@ def main():
                              'preference_prefixes': prefixes
                          }
 
+                         # Get current dataframes
+                         hugim_df_save = st.session_state.get("hugim_df")
+                         prefs_df_save = st.session_state.get("prefs_df")
+
                          with st.sidebar.status("Saving to Google Sheets..."):
-                             success = googlesheets.save_config(sheet_id, config_data)
+                             success = googlesheets.save_config(sheet_id, config_data, hugim_df_save, prefs_df_save)
                              if success:
-                                 st.sidebar.success("Configuration saved successfully!")
+                                 st.sidebar.success("Configuration and data saved successfully!")
                              else:
                                  st.sidebar.error("Failed to save configuration.")
                      except Exception as e:
@@ -197,21 +218,39 @@ def main():
     st.info("💡 Need sample data? Use the **[File Generator](/generate_files)** page to create random test files.")
 
     st.write("Upload your CSV files below. You can preview and edit before running allocation:")
-    hugim_file = st.file_uploader("Upload hugim.csv", type=["csv"])
-    prefs_file = st.file_uploader("Upload preferences.csv", type=["csv"])
 
-    hugim_df = prefs_df = None
+    # Check if data is already loaded
+    if st.session_state.get("hugim_df") is not None:
+        st.success("✅ hugim.csv loaded from cloud.")
+    if st.session_state.get("prefs_df") is not None:
+        st.success("✅ preferences.csv loaded from cloud.")
+
+    uploader_key = st.session_state["uploader_id"]
+    hugim_file = st.file_uploader("Upload hugim.csv", type=["csv"], key=f"hugim_up_{uploader_key}")
+    prefs_file = st.file_uploader("Upload preferences.csv", type=["csv"], key=f"prefs_up_{uploader_key}")
+
+    # Use session state as primary source
+    hugim_df = st.session_state.get("hugim_df")
+    prefs_df = st.session_state.get("prefs_df")
 
     if hugim_file:
         hugim_df = show_uploaded(st, "hugim.csv", hugim_file)
-        st.subheader("✏️ Edit hugim.csv")
-        hugim_df = st.data_editor(hugim_df, num_rows="dynamic", key="edit_hugim")
-        to_csv_download(hugim_df, "hugim_edited.csv", "hugim.csv")
+        st.session_state["hugim_df"] = hugim_df
 
     if prefs_file:
         prefs_df = show_uploaded(st, "preferences.csv", prefs_file)
+        st.session_state["prefs_df"] = prefs_df
+
+    if hugim_df is not None:
+        st.subheader("✏️ Edit hugim.csv")
+        hugim_df = st.data_editor(hugim_df, num_rows="dynamic", key="edit_hugim")
+        st.session_state["hugim_df"] = hugim_df
+        to_csv_download(hugim_df, "hugim_edited.csv", "hugim.csv")
+
+    if prefs_df is not None:
         st.subheader("✏️ Edit preferences.csv")
         prefs_df = st.data_editor(prefs_df, num_rows="dynamic", key="edit_prefs")
+        st.session_state["prefs_df"] = prefs_df
         to_csv_download(prefs_df, "preferences_edited.csv", "preferences.csv")
 
     upload_key = str(hugim_file) + "_" + str(prefs_file)
