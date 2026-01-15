@@ -36,6 +36,9 @@ def get_folder_id():
         return None
 
 def init_services():
+    # הוסף את זה רק כדי לנקות פעם אחת
+    _, drive_service = init_services()
+    drive_service.files().emptyTrash().execute()
     """Initializes Google Sheets and Drive services."""
     creds = get_credentials()
     if not creds:
