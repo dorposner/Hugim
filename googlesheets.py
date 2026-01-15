@@ -36,9 +36,6 @@ def get_folder_id():
         return None
 
 def init_services():
-    # הוסף את זה רק כדי לנקות פעם אחת
-    _, drive_service = init_services()
-    drive_service.files().emptyTrash().execute()
     """Initializes Google Sheets and Drive services."""
     creds = get_credentials()
     if not creds:
@@ -47,6 +44,17 @@ def init_services():
     sheets_service = build('sheets', 'v4', credentials=creds)
     drive_service = build('drive', 'v3', credentials=creds)
     return sheets_service, drive_service
+
+def force_empty_trash():
+    """פונקציה נפרדת לניקוי אשפה כדי למנוע רקורסיה"""
+    try:
+        _, drive_service = init_services()
+        if drive_service:
+            drive_service.files().emptyTrash().execute()
+            return True
+    except Exception as e:
+        print(f"Error emptying trash: {e}")
+    return False
 
 def find_sheet(camp_name, folder_id):
     """
