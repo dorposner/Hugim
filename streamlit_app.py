@@ -84,7 +84,7 @@ def main():
         st.session_state["last_upload_key"] = ""
 
     # ---------------------------------------------------------
-    # NEW: SIDEBAR FOR CAMP CONFIGURATION
+    # SIDEBAR FOR CAMP CONFIGURATION
     # ---------------------------------------------------------
     st.sidebar.title("Camp Configuration")
     camp_name = st.sidebar.text_input("Camp Name / ID", value=st.session_state.get("current_camp_name") or "")
@@ -97,28 +97,18 @@ def main():
         st.session_state["hugim_df"] = None
         st.session_state["prefs_df"] = None
 
-        folder_id = googlesheets.get_folder_id()
-        if folder_id:
-            with st.spinner(f"Searching for configuration for '{camp_name}'..."):
-                sheet_id = googlesheets.find_sheet(camp_name, folder_id)
-                if sheet_id:
-                    config = googlesheets.read_config(sheet_id)
-                    if config:
-                        st.session_state["pending_config"] = config
-                        st.session_state["config_sheet_id"] = sheet_id
-
-                        # Load data if available
-                        if 'hugim_df' in config:
-                            st.session_state["hugim_df"] = config['hugim_df']
-                        if 'prefs_df' in config:
-                            st.session_state["prefs_df"] = config['prefs_df']
-
-                        st.sidebar.success(f"Configuration loaded!")
-                else:
-                    st.session_state["config_sheet_id"] = None
-                    st.sidebar.info("No existing configuration found. A new sheet will be created upon save.")
-        else:
-            st.sidebar.warning("Google Drive Folder ID not configured.")
+        with st.spinner(f"Loading configuration for '{camp_name}'..."):
+            config = googlesheets.read_config(camp_name)
+            if config:
+                st.session_state["pending_config"] = config
+                # Load data if available
+                if 'hugim_df' in config and not config['hugim_df'].empty:
+                    st.session_state["hugim_df"] = config['hugim_df']
+                if 'prefs_df' in config and not config['prefs_df'].empty:
+                    st.session_state["prefs_df"] = config['prefs_df']
+                st.sidebar.success(f"Configuration loaded!")
+            else:
+                st.sidebar.info("No existing configuration found. A new one will be created upon save.")
 
     # Save Logic
     if st.sidebar.button("Save Camp Configuration"):
@@ -127,66 +117,50 @@ def main():
         elif "hugname" not in st.session_state:
             st.sidebar.error("Please configure the columns and periods before saving.")
         else:
-            folder_id = googlesheets.get_folder_id()
-            if not folder_id:
-                 st.sidebar.error("Drive Folder ID not configured in secrets.")
-            else:
-                 # Check if sheet exists or create new
-                 sheet_id = st.session_state.get("config_sheet_id")
-                 if not sheet_id:
-                     sheet_id = googlesheets.find_sheet(camp_name, folder_id)
+             # Gather data from session state
+             try:
+                 # Get selected periods
+                 periods = st.session_state.get("periods_selected", [])
 
-                 if not sheet_id:
-                     with st.sidebar.status("Creating new Google Sheet..."):
-                         sheet_id = googlesheets.create_sheet(camp_name, folder_id)
-                         st.session_state["config_sheet_id"] = sheet_id
+                 # Capture any prefixes for periods that might have been added manually
+                 prefixes = {}
+                 all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
+                 for key in all_period_keys:
+                     p_name = key.replace("pref_prefix_", "")
+                     prefixes[p_name] = st.session_state[key]
+                     if p_name not in periods:
+                         periods.append(p_name)
 
-                 if sheet_id:
-                     # Gather data from session state
-                     try:
-                         # Get selected periods
-                         periods = st.session_state.get("periods_selected", [])
+                 config_data = {
+                     'config': {
+                         'col_hug_name': st.session_state.get("hugname"),
+                         'col_capacity': st.session_state.get("capacity"),
+                         'col_minimum': st.session_state.get("min_campers"),
+                         'col_camper_id': st.session_state.get("camperid"),
+                         'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
+                     },
+                     'periods': periods,
+                     'preference_prefixes': prefixes
+                 }
 
-                         # Capture any prefixes for periods that might have been added manually
-                         # (We scan st.session_state for any key starting with pref_prefix_)
-                         prefixes = {}
-                         all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
-                         for key in all_period_keys:
-                             p_name = key.replace("pref_prefix_", "")
-                             prefixes[p_name] = st.session_state[key]
-                             if p_name not in periods:
-                                 periods.append(p_name)
+                 # Get current dataframes
+                 hugim_df_save = st.session_state.get("hugim_df")
+                 prefs_df_save = st.session_state.get("prefs_df")
 
-                         config_data = {
-                             'config': {
-                                 'col_hug_name': st.session_state.get("hugname"),
-                                 'col_capacity': st.session_state.get("capacity"),
-                                 'col_minimum': st.session_state.get("min_campers"),
-                                 'col_camper_id': st.session_state.get("camperid"),
-                                 'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
-                             },
-                             'periods': periods,
-                             'preference_prefixes': prefixes
-                         }
-
-                         # Get current dataframes
-                         hugim_df_save = st.session_state.get("hugim_df")
-                         prefs_df_save = st.session_state.get("prefs_df")
-
-                         with st.sidebar.status("Saving to Google Sheets..."):
-                             success = googlesheets.save_config(sheet_id, config_data, hugim_df_save, prefs_df_save)
-                             if success:
-                                 st.sidebar.success("Configuration and data saved successfully!")
-                             else:
-                                 st.sidebar.error("Failed to save configuration.")
-                     except Exception as e:
-                         st.sidebar.error(f"Error gathering configuration: {e}")
+                 with st.sidebar.status("Saving to Master Spreadsheet..."):
+                     success = googlesheets.save_config(camp_name, config_data, hugim_df_save, prefs_df_save)
+                     if success:
+                         st.sidebar.success("Configuration and data saved successfully!")
+                     else:
+                         st.sidebar.error("Failed to save configuration.")
+             except Exception as e:
+                 st.sidebar.error(f"Error gathering configuration: {e}")
 
     # Reset Logic
     if st.sidebar.button("Reset Configuration"):
         st.session_state["pending_config"] = None
         st.session_state["current_camp_name"] = None
-        keys_to_clear = ["hugname", "capacity", "min_campers", "camperid", "periods_selected", "config_sheet_id"]
+        keys_to_clear = ["hugname", "capacity", "min_campers", "camperid", "periods_selected"]
         for k in keys_to_clear:
             if k in st.session_state:
                 del st.session_state[k]
@@ -195,6 +169,15 @@ def main():
             if k.startswith("pref_prefix_"):
                 del st.session_state[k]
         st.rerun()
+
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Maintenance")
+    if st.sidebar.button("Empty Service Account Trash"):
+        with st.sidebar.status("Emptying trash..."):
+            if googlesheets.force_empty_trash():
+                st.sidebar.success("Trash emptied successfully.")
+            else:
+                st.sidebar.error("Failed to empty trash.")
 
     # ---------------------------------------------------------
     # MAIN APP

@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 # Try to import Google libraries
 try:
@@ -15,6 +17,8 @@ SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive'
 ]
+
+MASTER_SPREADSHEET_ID = "1E3PXe2LQfscI9vjJVqJRsBK9rhCRV8J-6rcrGMn_7XM"
 
 def get_credentials():
     """Retrieves credentials from Streamlit secrets."""
@@ -46,80 +50,29 @@ def init_services():
     return sheets_service, drive_service
 
 def force_empty_trash():
-    """פונקציה נפרדת לניקוי אשפה כדי למנוע רקורסיה"""
+    """Empty trash to free up space."""
     try:
         _, drive_service = init_services()
         if drive_service:
             drive_service.files().emptyTrash().execute()
             return True
     except Exception as e:
-        print(f"Error emptying trash: {e}")
+        st.error(f"Error emptying trash: {e}")
     return False
 
-def find_sheet(camp_name, folder_id):
-    """
-    Searches for a Google Sheet with the exact name in the specified folder.
-    Returns the file ID if found, else None.
-    """
-    if not GOOGLE_LIB_AVAILABLE:
-        return None
-
-    _, drive_service = init_services()
-    if not drive_service:
-        return None
-
-    # Escape single quotes in camp_name to prevent query injection
-    sanitized_name = camp_name.replace("'", "\\'")
-    query = f"name = '{sanitized_name}' and '{folder_id}' in parents and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
-    try:
-        results = drive_service.files().list(q=query, spaces='drive', fields='files(id, name)').execute()
-        files = results.get('files', [])
-        if files:
-            return files[0]['id']
-    except Exception as e:
-        st.error(f"Raw Error from Google (find_sheet): {e}")
-    return None
-
-def create_sheet(camp_name, folder_id):
-    """
-    Creates a new Google Sheet in the specified folder.
-    Returns the file ID.
-    """
-    if not GOOGLE_LIB_AVAILABLE:
-        st.error("Google libraries not installed.")
-        return None
-
-    sheets_service, drive_service = init_services()
-    if not sheets_service or not drive_service:
-        st.error("Google credentials missing.")
-        return None
-
-    # Create the spreadsheet directly in the target folder using Drive API
-    file_metadata = {
-        'name': camp_name,
-        'parents': [folder_id],
-        'mimeType': 'application/vnd.google-apps.spreadsheet'
+def get_tab_names(camp_name):
+    """Generates tab names based on camp name prefix."""
+    return {
+        'config': f"{camp_name}_config",
+        'periods': f"{camp_name}_periods",
+        'preference_prefixes': f"{camp_name}_preference_prefixes",
+        'hugim_data': f"{camp_name}_hugim_data",
+        'camper_prefs': f"{camp_name}_camper_prefs"
     }
-    try:
-        file = drive_service.files().create(body=file_metadata, fields='id').execute()
-        return file.get('id')
 
-    except HttpError as e:
-        st.error(f"Raw Error from Google: {e}")
-        if e.resp.status == 403:
-            # Check for storage quota error
-            if "storageQuotaExceeded" in str(e):
-                st.error("Error creating sheet: Service Account storage is full. Please delete files from the Service Account's Drive or empty the trash.")
-            else:
-                st.error("Error creating sheet: Permission denied. Please ensure the 'Google Sheets API' and 'Google Drive API' are enabled in your Google Cloud Project.")
-        return None
-    except Exception as e:
-        st.error(f"Raw Error from Google (create_sheet): {e}")
-        return None
-
-def read_config(spreadsheet_id):
+def read_config(camp_name):
     """
-    Reads configuration and data from the Google Sheet.
+    Reads configuration and data from the Master Spreadsheet for a specific camp.
     Returns a dict with 'config', 'periods', 'preference_prefixes', 'hugim_df', 'prefs_df'.
     """
     if not GOOGLE_LIB_AVAILABLE:
@@ -129,9 +82,11 @@ def read_config(spreadsheet_id):
     if not sheets_service:
         return None
 
+    tabs = get_tab_names(camp_name)
+
     try:
         # Get sheet metadata to check which sheets exist
-        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=MASTER_SPREADSHEET_ID).execute()
         existing_titles = [s['properties']['title'] for s in sheet_metadata.get('sheets', [])]
 
         ranges = []
@@ -140,20 +95,20 @@ def read_config(spreadsheet_id):
         # Helper to add range if sheet exists
         def add_range(key, sheet_name, cell_range):
             if sheet_name in existing_titles:
-                ranges.append(f"{sheet_name}!{cell_range}")
+                ranges.append(f"'{sheet_name}'!{cell_range}")
                 range_map[len(ranges)-1] = key
 
-        add_range('config', 'config', 'A:B')
-        add_range('periods', 'periods', 'A:A')
-        add_range('prefixes', 'preference_prefixes', 'A:B')
-        add_range('hugim', 'hugim_data', 'A:ZZ')
-        add_range('prefs', 'camper_prefs', 'A:ZZ')
+        add_range('config', tabs['config'], 'A:B')
+        add_range('periods', tabs['periods'], 'A:A')
+        add_range('prefixes', tabs['preference_prefixes'], 'A:B')
+        add_range('hugim', tabs['hugim_data'], 'A:ZZ')
+        add_range('prefs', tabs['camper_prefs'], 'A:ZZ')
 
         if not ranges:
             return {}
 
         result = sheets_service.spreadsheets().values().batchGet(
-            spreadsheetId=spreadsheet_id, ranges=ranges).execute()
+            spreadsheetId=MASTER_SPREADSHEET_ID, ranges=ranges).execute()
         value_ranges = result.get('valueRanges', [])
 
         config_data = {}
@@ -166,7 +121,8 @@ def read_config(spreadsheet_id):
             if key == 'config':
                 config_dict = {}
                 if values:
-                    start_row = 1 if len(values) > 0 and values[0][0].lower() == 'key' else 0
+                    # Skip header if present (key, value)
+                    start_row = 1 if len(values) > 0 and str(values[0][0]).lower() == 'key' else 0
                     for row in values[start_row:]:
                         if len(row) >= 2:
                             val = row[1]
@@ -180,7 +136,7 @@ def read_config(spreadsheet_id):
             elif key == 'periods':
                 periods_list = []
                 if values:
-                    start_row = 1 if len(values) > 0 and values[0][0].lower() == 'period_name' else 0
+                    start_row = 1 if len(values) > 0 and str(values[0][0]).lower() == 'period_name' else 0
                     for row in values[start_row:]:
                         if row:
                             periods_list.append(row[0])
@@ -189,7 +145,7 @@ def read_config(spreadsheet_id):
             elif key == 'prefixes':
                 prefixes_dict = {}
                 if values:
-                    start_row = 1 if len(values) > 0 and values[0][0].lower() == 'period_name' else 0
+                    start_row = 1 if len(values) > 0 and str(values[0][0]).lower() == 'period_name' else 0
                     for row in values[start_row:]:
                         if len(row) >= 2:
                             prefixes_dict[row[0]] = row[1]
@@ -199,13 +155,20 @@ def read_config(spreadsheet_id):
                 if values:
                     header = values[0]
                     data = values[1:]
-                    config_data['hugim_df'] = pd.DataFrame(data, columns=header)
+                    # Ensure we don't fail if empty data
+                    if data:
+                        config_data['hugim_df'] = pd.DataFrame(data, columns=header)
+                    else:
+                        config_data['hugim_df'] = pd.DataFrame(columns=header)
 
             elif key == 'prefs':
                 if values:
                     header = values[0]
                     data = values[1:]
-                    config_data['prefs_df'] = pd.DataFrame(data, columns=header)
+                    if data:
+                        config_data['prefs_df'] = pd.DataFrame(data, columns=header)
+                    else:
+                        config_data['prefs_df'] = pd.DataFrame(columns=header)
 
         return config_data
 
@@ -216,9 +179,9 @@ def read_config(spreadsheet_id):
         st.error(f"Unexpected error reading configuration: {e}")
         return None
 
-def save_config(spreadsheet_id, config_data, hugim_df=None, prefs_df=None):
+def save_config(camp_name, config_data, hugim_df=None, prefs_df=None):
     """
-    Writes configuration and optionally dataframes to the Google Sheet.
+    Writes configuration and optionally dataframes to the Master Google Sheet.
     config_data should match the structure returned by read_config.
     """
     if not GOOGLE_LIB_AVAILABLE:
@@ -229,6 +192,8 @@ def save_config(spreadsheet_id, config_data, hugim_df=None, prefs_df=None):
     if not sheets_service:
         st.error("Google credentials missing.")
         return False
+
+    tabs = get_tab_names(camp_name)
 
     # Prepare data for writing
 
@@ -248,24 +213,24 @@ def save_config(spreadsheet_id, config_data, hugim_df=None, prefs_df=None):
         prefixes_rows.append([str(p), str(prefix)])
 
     data_payloads = [
-        {'range': 'config!A1', 'values': config_rows},
-        {'range': 'periods!A1', 'values': periods_rows},
-        {'range': 'preference_prefixes!A1', 'values': prefixes_rows}
+        {'range': f"'{tabs['config']}'!A1", 'values': config_rows},
+        {'range': f"'{tabs['periods']}'!A1", 'values': periods_rows},
+        {'range': f"'{tabs['preference_prefixes']}'!A1", 'values': prefixes_rows}
     ]
 
-    required_titles = ['config', 'periods', 'preference_prefixes']
+    required_titles = [tabs['config'], tabs['periods'], tabs['preference_prefixes']]
 
     # 4. hugim_data tab
     if hugim_df is not None:
         hugim_rows = [hugim_df.columns.tolist()] + hugim_df.fillna('').astype(str).values.tolist()
-        data_payloads.append({'range': 'hugim_data!A1', 'values': hugim_rows})
-        required_titles.append('hugim_data')
+        data_payloads.append({'range': f"'{tabs['hugim_data']}'!A1", 'values': hugim_rows})
+        required_titles.append(tabs['hugim_data'])
 
     # 5. camper_prefs tab
     if prefs_df is not None:
         prefs_rows = [prefs_df.columns.tolist()] + prefs_df.fillna('').astype(str).values.tolist()
-        data_payloads.append({'range': 'camper_prefs!A1', 'values': prefs_rows})
-        required_titles.append('camper_prefs')
+        data_payloads.append({'range': f"'{tabs['camper_prefs']}'!A1", 'values': prefs_rows})
+        required_titles.append(tabs['camper_prefs'])
 
     body = {
         'valueInputOption': 'RAW',
@@ -274,7 +239,7 @@ def save_config(spreadsheet_id, config_data, hugim_df=None, prefs_df=None):
 
     try:
         # First, ensure sheets exist.
-        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=MASTER_SPREADSHEET_ID).execute()
         existing_titles = [s['properties']['title'] for s in sheet_metadata.get('sheets', [])]
 
         requests = []
@@ -284,19 +249,19 @@ def save_config(spreadsheet_id, config_data, hugim_df=None, prefs_df=None):
 
         if requests:
             sheets_service.spreadsheets().batchUpdate(
-                spreadsheetId=spreadsheet_id,
+                spreadsheetId=MASTER_SPREADSHEET_ID,
                 body={'requests': requests}
             ).execute()
 
         # Clear existing content before writing
         sheets_service.spreadsheets().values().batchClear(
-            spreadsheetId=spreadsheet_id,
-            body={'ranges': [f'{t}!A:ZZ' for t in required_titles]}
+            spreadsheetId=MASTER_SPREADSHEET_ID,
+            body={'ranges': [f"'{t}'!A:ZZ" for t in required_titles]}
         ).execute()
 
         # Write new content
         sheets_service.spreadsheets().values().batchUpdate(
-            spreadsheetId=spreadsheet_id,
+            spreadsheetId=MASTER_SPREADSHEET_ID,
             body=body
         ).execute()
 
