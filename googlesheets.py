@@ -63,9 +63,7 @@ def force_empty_trash():
 def get_tab_names(camp_name):
     """Generates tab names based on camp name prefix."""
     return {
-        'config': f"{camp_name}_config",
-        'periods': f"{camp_name}_periods",
-        'preference_prefixes': f"{camp_name}_preference_prefixes",
+        'settings': f"{camp_name}_settings",
         'hugim_data': f"{camp_name}_hugim_data",
         'camper_prefs': f"{camp_name}_camper_prefs",
         'assignments': f"{camp_name}_assignments"
@@ -74,7 +72,7 @@ def get_tab_names(camp_name):
 def get_all_camp_names(spreadsheet_id=None):
     """
     Returns a list of unique camp names based on tab prefixes in the Master Sheet.
-    Assumes any tab ending in '_config' represents a camp.
+    Checks for both new '_settings' and legacy '_config' suffixes.
     """
     if not GOOGLE_LIB_AVAILABLE:
         return []
@@ -92,8 +90,11 @@ def get_all_camp_names(spreadsheet_id=None):
         camp_names = set()
         for sheet in sheets:
             title = sheet['properties']['title']
-            if title.endswith('_config'):
-                # Extract prefix
+            if title.endswith('_settings'):
+                camp_name = title.replace('_settings', '')
+                camp_names.add(camp_name)
+            elif title.endswith('_config'):
+                # Legacy support
                 camp_name = title.replace('_config', '')
                 camp_names.add(camp_name)
 
@@ -105,6 +106,7 @@ def get_all_camp_names(spreadsheet_id=None):
 def rename_camp_tabs(old_name, new_name, spreadsheet_id=None):
     """
     Renames all tabs belonging to a camp from old_name to new_name.
+    Handles both new '_settings' structure and legacy tabs because it matches by prefix.
     """
     if not GOOGLE_LIB_AVAILABLE:
         return False
@@ -204,6 +206,7 @@ def read_config(camp_name, spreadsheet_id=None):
     """
     Reads configuration and data from the Master Spreadsheet for a specific camp.
     Returns a dict with 'config', 'periods', 'preference_prefixes', 'hugim_df', 'prefs_df'.
+    Supports both new '_settings' tab and legacy '_config', '_periods', '_preference_prefixes' tabs.
     """
     if not GOOGLE_LIB_AVAILABLE:
         return None
@@ -215,6 +218,13 @@ def read_config(camp_name, spreadsheet_id=None):
     sid = spreadsheet_id or MASTER_SPREADSHEET_ID
     tabs = get_tab_names(camp_name)
 
+    # Legacy tab names for fallback
+    legacy_tabs = {
+        'config': f"{camp_name}_config",
+        'periods': f"{camp_name}_periods",
+        'preference_prefixes': f"{camp_name}_preference_prefixes"
+    }
+
     try:
         # Get sheet metadata to check which sheets exist
         sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=sid).execute()
@@ -223,15 +233,24 @@ def read_config(camp_name, spreadsheet_id=None):
         ranges = []
         range_map = {} # Map index to key
 
+        # Determine if we are using new settings or legacy
+        use_legacy = False
+        if tabs['settings'] not in existing_titles and legacy_tabs['config'] in existing_titles:
+             use_legacy = True
+
         # Helper to add range if sheet exists
         def add_range(key, sheet_name, cell_range):
             if sheet_name in existing_titles:
                 ranges.append(f"'{sheet_name}'!{cell_range}")
                 range_map[len(ranges)-1] = key
 
-        add_range('config', tabs['config'], 'A:B')
-        add_range('periods', tabs['periods'], 'A:A')
-        add_range('prefixes', tabs['preference_prefixes'], 'A:B')
+        if use_legacy:
+            add_range('legacy_config', legacy_tabs['config'], 'A:B')
+            add_range('legacy_periods', legacy_tabs['periods'], 'A:A')
+            add_range('legacy_prefixes', legacy_tabs['preference_prefixes'], 'A:B')
+        else:
+            add_range('settings', tabs['settings'], 'A:E')
+
         add_range('hugim', tabs['hugim_data'], 'A:ZZ')
         add_range('prefs', tabs['camper_prefs'], 'A:ZZ')
         add_range('assignments', tabs['assignments'], 'A:ZZ')
@@ -243,17 +262,48 @@ def read_config(camp_name, spreadsheet_id=None):
             spreadsheetId=sid, ranges=ranges).execute()
         value_ranges = result.get('valueRanges', [])
 
-        config_data = {}
+        config_data = {
+            'config': {},
+            'periods': [],
+            'preference_prefixes': {}
+        }
 
         # Process results
         for i, val_range in enumerate(value_ranges):
             key = range_map.get(i)
             values = val_range.get('values', [])
 
-            if key == 'config':
-                config_dict = {}
+            if key == 'settings':
+                # Parse new settings tab
+                # Cols A-B: Config
+                # Cols D-E: Periods/Prefixes
                 if values:
-                    # Skip header if present (key, value)
+                    # Skip header if present
+                    start_row = 1 if len(values) > 0 and str(values[0][0]).lower() == 'key' else 0
+                    for row in values[start_row:]:
+                        # Parse config (A-B)
+                        if len(row) >= 2 and row[0]:
+                             val = row[1]
+                             try:
+                                 val = int(val)
+                             except ValueError:
+                                 pass
+                             config_data['config'][row[0]] = val
+
+                        # Parse periods/prefixes (D-E)
+                        # Row indices 3 (D) and 4 (E)
+                        if len(row) >= 4:
+                            period_name = row[3]
+                            if period_name:
+                                config_data['periods'].append(period_name)
+                                if len(row) >= 5:
+                                    config_data['preference_prefixes'][period_name] = row[4]
+                                else:
+                                     # Prefix might be missing or empty
+                                     config_data['preference_prefixes'][period_name] = ""
+
+            elif key == 'legacy_config':
+                if values:
                     start_row = 1 if len(values) > 0 and str(values[0][0]).lower() == 'key' else 0
                     for row in values[start_row:]:
                         if len(row) >= 2:
@@ -262,32 +312,26 @@ def read_config(camp_name, spreadsheet_id=None):
                                 val = int(val)
                             except ValueError:
                                 pass
-                            config_dict[row[0]] = val
-                config_data['config'] = config_dict
+                            config_data['config'][row[0]] = val
 
-            elif key == 'periods':
-                periods_list = []
+            elif key == 'legacy_periods':
                 if values:
                     start_row = 1 if len(values) > 0 and str(values[0][0]).lower() == 'period_name' else 0
                     for row in values[start_row:]:
                         if row:
-                            periods_list.append(row[0])
-                config_data['periods'] = periods_list
+                            config_data['periods'].append(row[0])
 
-            elif key == 'prefixes':
-                prefixes_dict = {}
+            elif key == 'legacy_prefixes':
                 if values:
                     start_row = 1 if len(values) > 0 and str(values[0][0]).lower() == 'period_name' else 0
                     for row in values[start_row:]:
                         if len(row) >= 2:
-                            prefixes_dict[row[0]] = row[1]
-                config_data['preference_prefixes'] = prefixes_dict
+                            config_data['preference_prefixes'][row[0]] = row[1]
 
             elif key == 'hugim':
                 if values:
                     header = values[0]
                     data = values[1:]
-                    # Ensure we don't fail if empty data
                     if data:
                         config_data['hugim_df'] = pd.DataFrame(data, columns=header)
                     else:
@@ -323,7 +367,8 @@ def read_config(camp_name, spreadsheet_id=None):
 def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assignments_df=None, spreadsheet_id=None):
     """
     Writes configuration and optionally dataframes (including assignments) to the Master Google Sheet.
-    config_data should match the structure returned by read_config.
+    Uses the new '[CampName]_settings' tab structure.
+    Also handles migration by deleting legacy tabs if they exist.
     """
     if not GOOGLE_LIB_AVAILABLE:
         st.error("Google libraries not installed.")
@@ -339,42 +384,54 @@ def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assign
 
     # Prepare data for writing
 
-    # 1. config tab
-    config_rows = [['key', 'value']]
-    for k, v in config_data.get('config', {}).items():
-        config_rows.append([str(k), str(v)])
+    # settings tab data
+    # Combine Config (A-B) and Periods/Prefixes (D-E) into one list of rows
+    config_items = list(config_data.get('config', {}).items())
+    periods = config_data.get('periods', [])
+    prefixes = config_data.get('preference_prefixes', {})
 
-    # 2. periods tab
-    periods_rows = [['period_name']]
-    for p in config_data.get('periods', []):
-        periods_rows.append([str(p)])
+    # Determine max rows needed
+    max_rows = max(len(config_items), len(periods))
 
-    # 3. preference_prefixes tab
-    prefixes_rows = [['period_name', 'prefix']]
-    for p, prefix in config_data.get('preference_prefixes', {}).items():
-        prefixes_rows.append([str(p), str(prefix)])
+    settings_rows = [['key', 'value', '', 'period_name', 'prefix']] # Header
+
+    for i in range(max_rows):
+        row = ['', '', '', '', '']
+
+        # Cols A-B
+        if i < len(config_items):
+            row[0] = str(config_items[i][0])
+            row[1] = str(config_items[i][1])
+
+        # Col C is empty spacer
+
+        # Cols D-E
+        if i < len(periods):
+            p = periods[i]
+            row[3] = str(p)
+            row[4] = str(prefixes.get(p, ''))
+
+        settings_rows.append(row)
 
     data_payloads = [
-        {'range': f"'{tabs['config']}'!A1", 'values': config_rows},
-        {'range': f"'{tabs['periods']}'!A1", 'values': periods_rows},
-        {'range': f"'{tabs['preference_prefixes']}'!A1", 'values': prefixes_rows}
+        {'range': f"'{tabs['settings']}'!A1", 'values': settings_rows}
     ]
 
-    required_titles = [tabs['config'], tabs['periods'], tabs['preference_prefixes']]
+    required_titles = [tabs['settings']]
 
-    # 4. hugim_data tab
+    # hugim_data tab
     if hugim_df is not None:
         hugim_rows = [hugim_df.columns.tolist()] + hugim_df.fillna('').astype(str).values.tolist()
         data_payloads.append({'range': f"'{tabs['hugim_data']}'!A1", 'values': hugim_rows})
         required_titles.append(tabs['hugim_data'])
 
-    # 5. camper_prefs tab
+    # camper_prefs tab
     if prefs_df is not None:
         prefs_rows = [prefs_df.columns.tolist()] + prefs_df.fillna('').astype(str).values.tolist()
         data_payloads.append({'range': f"'{tabs['camper_prefs']}'!A1", 'values': prefs_rows})
         required_titles.append(tabs['camper_prefs'])
 
-    # 6. assignments tab
+    # assignments tab
     if assignments_df is not None:
         assignments_rows = [assignments_df.columns.tolist()] + assignments_df.fillna('').astype(str).values.tolist()
         data_payloads.append({'range': f"'{tabs['assignments']}'!A1", 'values': assignments_rows})
@@ -402,6 +459,7 @@ def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assign
             ).execute()
 
         # Clear existing content before writing
+        # Explicitly using batchClear to ensure no old data remains (e.g. ghost rows)
         sheets_service.spreadsheets().values().batchClear(
             spreadsheetId=sid,
             body={'ranges': [f"'{t}'!A:ZZ" for t in required_titles]}
@@ -412,6 +470,26 @@ def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assign
             spreadsheetId=sid,
             body=body
         ).execute()
+
+        # Clean up legacy tabs if they exist
+        legacy_tabs = [
+            f"{camp_name}_config",
+            f"{camp_name}_periods",
+            f"{camp_name}_preference_prefixes"
+        ]
+
+        delete_requests = []
+        for sheet in sheet_metadata.get('sheets', []):
+            if sheet['properties']['title'] in legacy_tabs:
+                delete_requests.append({
+                    'deleteSheet': {'sheetId': sheet['properties']['sheetId']}
+                })
+
+        if delete_requests:
+            sheets_service.spreadsheets().batchUpdate(
+                spreadsheetId=sid,
+                body={'requests': delete_requests}
+            ).execute()
 
         return True
 
