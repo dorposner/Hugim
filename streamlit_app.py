@@ -486,228 +486,252 @@ def main():
             )
 
     if ready:
-        if st.session_state["allocation_run"]:
-            st.warning("Allocation already run for current files.")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.button("Run Allocation", disabled=True)
-            with col2:
-                if st.button("Allow Rerun"):
-                    st.session_state["allocation_run"] = False
-        else:
-            # Add UI selection for Minimums Strategy
-            strategy = st.radio(
-                "Under-enrolled Strategy:",
-                ("Cancel & Reallocate (Default)", "Force Fill"),
-                help="Cancel: Removes activities below minimum and moves campers. Force Fill: Adds random campers to meet minimums."
+        # Add UI selection for Minimums Strategy
+        strategy = st.radio(
+            "Under-enrolled Strategy:",
+            ("Cancel & Reallocate (Default)", "Force Fill"),
+            help="Cancel: Removes activities below minimum and moves campers. Force Fill: Adds random campers to meet minimums."
+        )
+
+        if st.button("Run Allocation"):
+            st.session_state["allocation_run"] = True
+
+            mapped_hugim = hugim_df[
+                [hugim_mapping["HugName"], hugim_mapping["Capacity"], hugim_mapping["Minimum"]] + list(hugim_mapping["Periods"])
+            ]
+            mapped_hugim.to_csv("hugim.csv", index=False)
+
+            mapped_prefs = prefs_df.copy()
+            mapped_prefs.to_csv("preferences.csv", index=False)
+
+            try:
+                hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
+                # UPDATED: Receive max_prefs
+                campers, max_prefs = load_preferences("preferences.csv", mapping=prefs_mapping)
+                st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
+
+                # UPDATED: Pass periods and max_prefs
+                run_allocation(campers, hug_data, list(period_map.keys()), max_prefs)
+
+                if strategy.startswith("Cancel"):
+                    enforce_minimums_cancel_and_reallocate(campers, hug_data)
+                else:
+                    fill_minimums(campers, hug_data)
+
+                calculate_and_store_weekly_scores(campers)
+
+                save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
+                save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
+                save_stats(campers, hug_data, OUTPUT_STATS_FILE)
+
+                # 🔹 Save all results into session_state (after files are saved)
+                if OUTPUT_ASSIGNMENTS_FILE.exists():
+                    st.session_state["assignments_df"] = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
+                else:
+                    st.session_state["assignments_df"] = None
+
+                if OUTPUT_STATS_FILE.exists():
+                    st.session_state["stats_df"] = pd.read_csv(OUTPUT_STATS_FILE)
+                else:
+                    st.session_state["stats_df"] = None
+
+                if OUTPUT_UNASSIGNED_FILE.exists():
+                    st.session_state["unassigned_df"] = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
+                else:
+                    st.session_state["unassigned_df"] = None
+
+                st.session_state["campers"] = campers
+                st.session_state["hug_data"] = hug_data
+
+                # ---------------------------------------------------------
+                # AUTO-SAVE TO CLOUD
+                # ---------------------------------------------------------
+                current_camp = st.session_state.get("current_camp_name")
+                if current_camp:
+                    # Construct config_data for saving
+                    periods = st.session_state.get("periods_selected", [])
+                    prefixes = {}
+                    all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
+                    for key in all_period_keys:
+                        p_name = key.replace("pref_prefix_", "")
+                        prefixes[p_name] = st.session_state[key]
+                        if p_name not in periods:
+                            periods.append(p_name)
+
+                    config_data = {
+                        'config': {
+                            'col_hug_name': st.session_state.get("hugname"),
+                            'col_capacity': st.session_state.get("capacity"),
+                            'col_minimum': st.session_state.get("min_campers"),
+                            'col_camper_id': st.session_state.get("camperid"),
+                            'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
+                        },
+                        'periods': periods,
+                        'preference_prefixes': prefixes
+                    }
+
+                    # Call save
+                    success = googlesheets.save_camp_state(
+                        current_camp,
+                        config_data,
+                        hugim_df,
+                        prefs_df,
+                        st.session_state.get("assignments_df")
+                    )
+
+                    if success:
+                        st.toast(f"Results automatically saved to cloud for camp: {current_camp}", icon="✅")
+                    else:
+                        st.error("Failed to auto-save results to cloud.")
+
+                st.success("✅ Allocation completed! You can now view or download results below.")
+
+            except Exception as e:
+                import traceback
+                st.error(f"Error during allocation: {e}")
+                with st.expander("Show traceback"):
+                    st.code(traceback.format_exc())
+
+        # ---------------------------------------------------------
+        # DISPLAY RESULTS (Always visible if allocation was run)
+        # ---------------------------------------------------------
+        if st.session_state.get("allocation_run") and st.session_state.get("assignments_df") is not None:
+            # Reconstruct variables from session state
+            df_assignments = st.session_state["assignments_df"].copy() # Copy to avoid mutating session state in place (if modifying index)
+            df_stats = st.session_state["stats_df"]
+            df_unassigned = st.session_state["unassigned_df"]
+
+            # Note: We can't easily reconstruct 'campers' and 'hug_data' from dataframes for logic that needs objects,
+            # but we saved them to session_state so we can use them if needed.
+            # However, the display logic mostly uses dataframes.
+
+            # =========================
+            # 1. Assignments Table
+            # =========================
+            st.subheader("📋 Assignments Table")
+            # Create a display version
+            display_assignments = df_assignments.copy()
+            display_assignments.index = display_assignments.index + 1
+            st.dataframe(display_assignments)
+
+            st.download_button(
+                label="Download Assignments CSV",
+                data=df_assignments.to_csv(index=False),
+                file_name="assignments_output.csv",
+                mime="text/csv"
             )
 
-            if st.button("Run Allocation"):
-                st.session_state["allocation_run"] = True
+            # =========================
+            # 2. Preference Satisfaction Summary
+            # =========================
+            st.subheader("🌟 Preference Satisfaction Summary")
+            how_cols = [col for col in df_assignments.columns if col.endswith('_How')]
+            pref_counts = {}
+            for how_col in how_cols:
+                vals = df_assignments[how_col].value_counts()
+                for idx, count in vals.items():
+                    pref_counts[idx] = pref_counts.get(idx, 0) + count
+            total_assignments = sum(pref_counts.values())
 
-                mapped_hugim = hugim_df[
-                    [hugim_mapping["HugName"], hugim_mapping["Capacity"], hugim_mapping["Minimum"]] + list(hugim_mapping["Periods"])
-                ]
-                mapped_hugim.to_csv("hugim.csv", index=False)
+            summary_rows = []
+            order = ['Pref_1','Pref_2','Pref_3','Pref_4','Pref_5','Random','Forced_minimum', '']
+            order_labels = ['1st Choice', '2nd Choice', '3rd Choice', '4th Choice', '5th Choice', 'Random', 'Forced Minimum', 'Unassigned']
+            for pref, label in zip(order, order_labels):
+                cnt = pref_counts.get(pref, 0)
+                pct = 100 * cnt / total_assignments if total_assignments else 0
+                summary_rows.append({"Assignment Type": label, "Count": cnt, "Percent": f"{pct:.1f}%"})
 
-                mapped_prefs = prefs_df.copy()
-                mapped_prefs.to_csv("preferences.csv", index=False)
+            summary_df = pd.DataFrame(summary_rows)
+            st.dataframe(summary_df)
 
-                try:
-                    hug_data = load_hugim("hugim.csv", mapping=hugim_mapping)
-                    # UPDATED: Receive max_prefs
-                    campers, max_prefs = load_preferences("preferences.csv", mapping=prefs_mapping)
-                    st.info(f"Loaded {len(campers)} campers and {sum(len(hs) for hs in hug_data.values())} hugim-periods.")
+            # =========================
+            # 3. Bar Chart Visualization
+            # =========================
+            try:
+                import plotly.express as px
+                chart_df = summary_df[summary_df['Assignment Type'] != 'Unassigned']
+                fig = px.bar(
+                    chart_df, x='Assignment Type', y='Count', text='Percent',
+                    title="Assignments by Preference Rank", color='Assignment Type'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            except ImportError:
+                st.bar_chart(summary_df[summary_df['Assignment Type'] != 'Unassigned'].set_index('Assignment Type')["Count"])
 
-                    # UPDATED: Pass periods and max_prefs
-                    run_allocation(campers, hug_data, list(period_map.keys()), max_prefs)
+            # =========================
+            # 4. Statistics Table
+            # =========================
+            if df_stats is not None:
+                st.subheader("📊 Statistics Table")
+                display_stats = df_stats.copy()
+                display_stats.index = display_stats.index + 1
+                st.dataframe(display_stats)
+                st.download_button(
+                    label="Download Stats CSV",
+                    data=df_stats.to_csv(index=False),
+                    file_name="stats_output.csv",
+                    mime="text/csv"
+                )
+            else:
+                st.warning("No statistics generated.")
 
-                    if strategy.startswith("Cancel"):
-                        enforce_minimums_cancel_and_reallocate(campers, hug_data)
-                    else:
-                        fill_minimums(campers, hug_data)
+            # =========================
+            # 5. Unassigned Campers (with reason breakdown)
+            # =========================
+            if df_unassigned is not None and not df_unassigned.empty:
+                st.subheader("🚫 Unassigned Campers")
+                display_unassigned = df_unassigned.copy()
+                display_unassigned.index = display_unassigned.index + 1
+                st.dataframe(display_unassigned)
+                st.download_button(
+                    label="Download Unassigned Campers CSV",
+                    data=df_unassigned.to_csv(index=False),
+                    file_name="unassigned_campers_output.csv",
+                    mime="text/csv"
+                )
+                # Reason Breakdown
+                st.write("### Unassignment Reasons Breakdown")
+                reason_counts = df_unassigned['Reason'].value_counts()
+                st.write(reason_counts)
+            else:
+                st.success("All campers got a Hug assignment for each period! No one unassigned.")
 
-                    calculate_and_store_weekly_scores(campers)
+            # =========================
+            # 6. Cancelled Hugim - Who wanted them?
+            # =========================
+            if 'missing_hugim' in locals() and missing_hugim:
+                st.subheader("❌ Cancelled or Unavailable Hugim Analysis")
+                for hug in missing_hugim:
+                    campers_wanted = []
+                    for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
+                        period_pref_cols = [col for col in prefs_df.columns if col.startswith(f"{prefix}_")]
+                        matches = prefs_df[period_pref_cols].apply(lambda row: hug in row.values, axis=1)
+                        wanted_these = prefs_df.loc[matches, prefs_mapping["CamperID"]].tolist()
+                        campers_wanted.extend([
+                            f"{str(camper)} (Period: {period})"
+                            for camper in wanted_these
+                        ])
+                    n_wanted = len(campers_wanted)
+                    st.info(f"Hug '{hug}': {n_wanted} camper(s) listed this as a preference.")
+                    if campers_wanted:
+                        with st.expander(f"See list of campers who wanted '{hug}'"):
+                            st.write(', '.join(campers_wanted))
 
-                    save_assignments(campers, OUTPUT_ASSIGNMENTS_FILE)
-                    save_unassigned(campers, OUTPUT_UNASSIGNED_FILE)
-                    save_stats(campers, hug_data, OUTPUT_STATS_FILE)
+            # Additional Download Buttons for Safety (Redundant but requested in original code flow logic, keeping them consistent)
+            # (Already added above)
 
-                    # ----- OUTPUTS -----
-                    # =========================
-                    # 1. Assignments Table
-                    # =========================
-                    if OUTPUT_ASSIGNMENTS_FILE.exists() and OUTPUT_ASSIGNMENTS_FILE.stat().st_size > 0:
-                        df_assignments = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-                        st.subheader("📋 Assignments Table")
-                        df_assignments.index = df_assignments.index + 1
-                        st.dataframe(df_assignments)
-                        st.download_button(
-                            label="Download Assignments CSV",
-                            data=OUTPUT_ASSIGNMENTS_FILE.read_text(),
-                            file_name=OUTPUT_ASSIGNMENTS_FILE.name,
-                            mime="text/csv"
-                        )
-                    else:
-                        st.error("Assignments output was not generated (allocation failed). See warnings above.")
-                        return
+            # Optionally, summarize at a glance:
+            if not summary_df.empty:
+                st.markdown(f"""
+                    #### 📊 Quick Summary
+                    - **Total campers assigned**: {len(df_assignments)}
+                    - **Total assignments (all periods):** {total_assignments}
+                    - **Unassigned slots:** {summary_df[summary_df['Assignment Type'] == 'Unassigned']['Count'].values[0] if 'Unassigned' in summary_df['Assignment Type'].values else 0}
+                    - **% Got Top-3 choice:** {sum(summary_df.loc[:2, 'Count'])/total_assignments*100:.1f}%
+                """)
 
-                    # =========================
-                    # 2. Preference Satisfaction Summary
-                    # =========================
-                    st.subheader("🌟 Preference Satisfaction Summary")
-                    how_cols = [col for col in df_assignments.columns if col.endswith('_How')]
-                    pref_counts = {}
-                    for how_col in how_cols:
-                        vals = df_assignments[how_col].value_counts()
-                        for idx, count in vals.items():
-                            pref_counts[idx] = pref_counts.get(idx, 0) + count
-                    total_assignments = sum(pref_counts.values())
-
-                    summary_rows = []
-                    order = ['Pref_1','Pref_2','Pref_3','Pref_4','Pref_5','Random','Forced_minimum', '']
-                    order_labels = ['1st Choice', '2nd Choice', '3rd Choice', '4th Choice', '5th Choice', 'Random', 'Forced Minimum', 'Unassigned']
-                    for pref, label in zip(order, order_labels):
-                        cnt = pref_counts.get(pref, 0)
-                        pct = 100 * cnt / total_assignments if total_assignments else 0
-                        summary_rows.append({"Assignment Type": label, "Count": cnt, "Percent": f"{pct:.1f}%"})
-
-                    summary_df = pd.DataFrame(summary_rows)
-                    st.dataframe(summary_df)
-
-                    # =========================
-                    # 3. Bar Chart Visualization
-                    # =========================
-                    try:
-                        import plotly.express as px
-                        chart_df = summary_df[summary_df['Assignment Type'] != 'Unassigned']
-                        fig = px.bar(
-                            chart_df, x='Assignment Type', y='Count', text='Percent',
-                            title="Assignments by Preference Rank", color='Assignment Type'
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                    except ImportError:
-                        st.bar_chart(summary_df[summary_df['Assignment Type'] != 'Unassigned'].set_index('Assignment Type')["Count"])
-
-                    # =========================
-                    # 4. Statistics Table
-                    # =========================
-                    if OUTPUT_STATS_FILE.exists():
-                        df_stats = pd.read_csv(OUTPUT_STATS_FILE)
-                        st.subheader("📊 Statistics Table")
-                        df_stats.index = df_stats.index + 1
-                        st.dataframe(df_stats)
-                        st.download_button(
-                            label="Download Stats CSV",
-                            data=OUTPUT_STATS_FILE.read_text(),
-                            file_name=OUTPUT_STATS_FILE.name,
-                            mime="text/csv"
-                        )
-                    else:
-                        st.warning("No statistics generated.")
-
-                    # =========================
-                    # 5. Unassigned Campers (with reason breakdown)
-                    # =========================
-                    if OUTPUT_UNASSIGNED_FILE.exists() and OUTPUT_UNASSIGNED_FILE.stat().st_size > 0:
-                        df_unassigned = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
-                        st.subheader("🚫 Unassigned Campers")
-                        df_unassigned.index = df_unassigned.index + 1
-                        st.dataframe(df_unassigned)
-                        st.download_button(
-                            label="Download Unassigned Campers CSV",
-                            data=OUTPUT_UNASSIGNED_FILE.read_text(),
-                            file_name=OUTPUT_UNASSIGNED_FILE.name,
-                            mime="text/csv"
-                        )
-                        # Reason Breakdown
-                        st.write("### Unassignment Reasons Breakdown")
-                        reason_counts = df_unassigned['Reason'].value_counts()
-                        st.write(reason_counts)
-                    else:
-                        st.success("All campers got a Hug assignment for each period! No one unassigned.")
-
-                    # =========================
-                    # 6. Cancelled Hugim - Who wanted them?
-                    # =========================
-                    if ready and 'missing_hugim' in locals() and missing_hugim:
-                        st.subheader("❌ Cancelled or Unavailable Hugim Analysis")
-                        for hug in missing_hugim:
-                            campers_wanted = []
-                            for period, prefix in prefs_mapping.get("PeriodPrefixes", {}).items():
-                                period_pref_cols = [col for col in prefs_df.columns if col.startswith(f"{prefix}_")]
-                                matches = prefs_df[period_pref_cols].apply(lambda row: hug in row.values, axis=1)
-                                wanted_these = prefs_df.loc[matches, prefs_mapping["CamperID"]].tolist()
-                                campers_wanted.extend([
-                                    f"{str(camper)} (Period: {period})"
-                                    for camper in wanted_these
-                                ])
-                            n_wanted = len(campers_wanted)
-                            st.info(f"Hug '{hug}': {n_wanted} camper(s) listed this as a preference.")
-                            if campers_wanted:
-                                with st.expander(f"See list of campers who wanted '{hug}'"):
-                                    st.write(', '.join(campers_wanted))
-
-                    # 🔹 Save all results into session_state (after files are saved)
-                    if OUTPUT_ASSIGNMENTS_FILE.exists():
-                        st.session_state["assignments_df"] = pd.read_csv(OUTPUT_ASSIGNMENTS_FILE)
-                    else:
-                        st.session_state["assignments_df"] = None
-                    
-                    if OUTPUT_STATS_FILE.exists():
-                        st.session_state["stats_df"] = pd.read_csv(OUTPUT_STATS_FILE)
-                    else:
-                        st.session_state["stats_df"] = None
-                    
-                    if OUTPUT_UNASSIGNED_FILE.exists():
-                        st.session_state["unassigned_df"] = pd.read_csv(OUTPUT_UNASSIGNED_FILE)
-                    else:
-                        st.session_state["unassigned_df"] = None
-                    
-                    st.session_state["campers"] = campers
-                    st.session_state["hug_data"] = hug_data
-                    
-                    st.success("✅ Allocation completed! You can now view or download results below.")
-
-                    if st.session_state["assignments_df"] is not None:
-                        st.subheader("📋 Assignments Results")
-                        st.dataframe(st.session_state["assignments_df"])
-                        st.download_button(
-                            "⬇️ Download Assignments CSV",
-                            data=st.session_state["assignments_df"].to_csv(index=False),
-                            file_name="assignments_output.csv",
-                            mime="text/csv"
-                        )
-
-                    if st.session_state["unassigned_df"] is not None:
-                        st.subheader("🚫 Unassigned Campers")
-                        st.dataframe(st.session_state["unassigned_df"])
-                        st.download_button(
-                            "⬇️ Download Unassigned CSV",
-                            data=st.session_state["unassigned_df"].to_csv(index=False),
-                            file_name="unassigned_campers_output.csv",
-                            mime="text/csv"
-                        )
-
-
-
-                    # Optionally, summarize at a glance:
-                    st.markdown(f"""
-                        #### 📊 Quick Summary
-                        - **Total campers assigned**: {len(df_assignments)}
-                        - **Total assignments (all periods):** {total_assignments}
-                        - **Unassigned slots:** {summary_df[summary_df['Assignment Type'] == 'Unassigned']['Count'].values[0]}
-                        - **% Got Top-3 choice:** {sum(summary_df.loc[:2, 'Count'])/total_assignments*100:.1f}% 
-                    """)
-
-                    if missing_hugim:
-                        st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
-
-                except Exception as e:
-                    import traceback
-                    st.error(f"Error during allocation: {e}")
-                    with st.expander("Show traceback"):
-                        st.code(traceback.format_exc())
+            if missing_hugim:
+                st.warning(f"Ignored preferences for these HugNames (not in hugim.csv): {', '.join(missing_hugim)}")
 
     st.markdown("---")
     st.markdown("Built By Dor Posner with ❤️ for Camp Administrators | [Support](mailto:dorposner@gmail.com)")
