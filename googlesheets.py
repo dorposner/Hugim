@@ -71,7 +71,136 @@ def get_tab_names(camp_name):
         'assignments': f"{camp_name}_assignments"
     }
 
-def read_config(camp_name):
+def get_all_camp_names(spreadsheet_id=None):
+    """
+    Returns a list of unique camp names based on tab prefixes in the Master Sheet.
+    Assumes any tab ending in '_config' represents a camp.
+    """
+    if not GOOGLE_LIB_AVAILABLE:
+        return []
+
+    sheets_service, _ = init_services()
+    if not sheets_service:
+        return []
+
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    try:
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=sid).execute()
+        sheets = sheet_metadata.get('sheets', [])
+
+        camp_names = set()
+        for sheet in sheets:
+            title = sheet['properties']['title']
+            if title.endswith('_config'):
+                # Extract prefix
+                camp_name = title.replace('_config', '')
+                camp_names.add(camp_name)
+
+        return sorted(list(camp_names))
+    except Exception as e:
+        st.error(f"Error fetching camp names: {e}")
+        return []
+
+def rename_camp_tabs(old_name, new_name, spreadsheet_id=None):
+    """
+    Renames all tabs belonging to a camp from old_name to new_name.
+    """
+    if not GOOGLE_LIB_AVAILABLE:
+        return False
+
+    sheets_service, _ = init_services()
+    if not sheets_service:
+        return False
+
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    try:
+        # Get all sheets to find matches
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=sid).execute()
+        sheets = sheet_metadata.get('sheets', [])
+
+        requests = []
+        old_prefix = f"{old_name}_"
+        new_prefix = f"{new_name}_"
+
+        for sheet in sheets:
+            title = sheet['properties']['title']
+            if title.startswith(old_prefix):
+                sheet_id = sheet['properties']['sheetId']
+                # Replace the prefix
+                new_title = title.replace(old_prefix, new_prefix, 1)
+
+                requests.append({
+                    'updateSheetProperties': {
+                        'properties': {
+                            'sheetId': sheet_id,
+                            'title': new_title
+                        },
+                        'fields': 'title'
+                    }
+                })
+
+        if requests:
+            sheets_service.spreadsheets().batchUpdate(
+                spreadsheetId=sid,
+                body={'requests': requests}
+            ).execute()
+            return True
+        else:
+            st.warning(f"No tabs found for camp '{old_name}'")
+            return False
+
+    except Exception as e:
+        st.error(f"Error renaming camp tabs: {e}")
+        return False
+
+def delete_camp_tabs(camp_name, spreadsheet_id=None):
+    """
+    Deletes all tabs belonging to a camp.
+    """
+    if not GOOGLE_LIB_AVAILABLE:
+        return False
+
+    sheets_service, _ = init_services()
+    if not sheets_service:
+        return False
+
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    try:
+        # Get all sheets to find matches
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=sid).execute()
+        sheets = sheet_metadata.get('sheets', [])
+
+        requests = []
+        prefix = f"{camp_name}_"
+
+        for sheet in sheets:
+            title = sheet['properties']['title']
+            if title.startswith(prefix):
+                sheet_id = sheet['properties']['sheetId']
+                requests.append({
+                    'deleteSheet': {
+                        'sheetId': sheet_id
+                    }
+                })
+
+        if requests:
+            sheets_service.spreadsheets().batchUpdate(
+                spreadsheetId=sid,
+                body={'requests': requests}
+            ).execute()
+            return True
+        else:
+            st.warning(f"No tabs found for camp '{camp_name}'")
+            return False
+
+    except Exception as e:
+        st.error(f"Error deleting camp tabs: {e}")
+        return False
+
+def read_config(camp_name, spreadsheet_id=None):
     """
     Reads configuration and data from the Master Spreadsheet for a specific camp.
     Returns a dict with 'config', 'periods', 'preference_prefixes', 'hugim_df', 'prefs_df'.
@@ -83,11 +212,12 @@ def read_config(camp_name):
     if not sheets_service:
         return None
 
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
     tabs = get_tab_names(camp_name)
 
     try:
         # Get sheet metadata to check which sheets exist
-        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=MASTER_SPREADSHEET_ID).execute()
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=sid).execute()
         existing_titles = [s['properties']['title'] for s in sheet_metadata.get('sheets', [])]
 
         ranges = []
@@ -110,7 +240,7 @@ def read_config(camp_name):
             return {}
 
         result = sheets_service.spreadsheets().values().batchGet(
-            spreadsheetId=MASTER_SPREADSHEET_ID, ranges=ranges).execute()
+            spreadsheetId=sid, ranges=ranges).execute()
         value_ranges = result.get('valueRanges', [])
 
         config_data = {}
@@ -190,7 +320,7 @@ def read_config(camp_name):
         st.error(f"Unexpected error reading configuration: {e}")
         return None
 
-def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assignments_df=None):
+def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assignments_df=None, spreadsheet_id=None):
     """
     Writes configuration and optionally dataframes (including assignments) to the Master Google Sheet.
     config_data should match the structure returned by read_config.
@@ -204,6 +334,7 @@ def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assign
         st.error("Google credentials missing.")
         return False
 
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
     tabs = get_tab_names(camp_name)
 
     # Prepare data for writing
@@ -256,7 +387,7 @@ def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assign
 
     try:
         # First, ensure sheets exist.
-        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=MASTER_SPREADSHEET_ID).execute()
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=sid).execute()
         existing_titles = [s['properties']['title'] for s in sheet_metadata.get('sheets', [])]
 
         requests = []
@@ -266,19 +397,19 @@ def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assign
 
         if requests:
             sheets_service.spreadsheets().batchUpdate(
-                spreadsheetId=MASTER_SPREADSHEET_ID,
+                spreadsheetId=sid,
                 body={'requests': requests}
             ).execute()
 
         # Clear existing content before writing
         sheets_service.spreadsheets().values().batchClear(
-            spreadsheetId=MASTER_SPREADSHEET_ID,
+            spreadsheetId=sid,
             body={'ranges': [f"'{t}'!A:ZZ" for t in required_titles]}
         ).execute()
 
         # Write new content
         sheets_service.spreadsheets().values().batchUpdate(
-            spreadsheetId=MASTER_SPREADSHEET_ID,
+            spreadsheetId=sid,
             body=body
         ).execute()
 
