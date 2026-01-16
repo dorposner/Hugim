@@ -31,6 +31,10 @@ from data_helpers import (
     fill_minimums
 )
 
+@st.cache_data(ttl=600)
+def get_cached_camp_names(spreadsheet_id=None):
+    return googlesheets.get_all_camp_names(spreadsheet_id)
+
 def init_session():
     """Initialize session_state keys so Streamlit won't lose data after refresh."""
     keys = [
@@ -87,34 +91,48 @@ def main():
     # SIDEBAR FOR CAMP CONFIGURATION
     # ---------------------------------------------------------
     st.sidebar.title("Camp Configuration")
-    camp_name = st.sidebar.text_input("Camp Name / ID", value=st.session_state.get("current_camp_name") or "")
+    camp_name_input = st.sidebar.text_input("Camp Name / ID", value=st.session_state.get("current_camp_name") or "")
+
+    # SAFETY MECHANISM
+    # Check if camp exists immediately
+    is_new_camp = True
+    if camp_name_input:
+        # Use default ID for regular users
+        all_camps = get_cached_camp_names()
+        if camp_name_input in all_camps:
+            st.sidebar.success("Camp found! Data loaded.")
+            is_new_camp = False
+        else:
+            st.sidebar.info("New Camp. Will be created upon saving.")
 
     # Load Logic
-    if camp_name and camp_name != st.session_state.get("current_camp_name"):
-        st.session_state["current_camp_name"] = camp_name
+    if camp_name_input and camp_name_input != st.session_state.get("current_camp_name"):
+        st.session_state["current_camp_name"] = camp_name_input
         # Reset uploaders when switching camp
         st.session_state["uploader_id"] += 1
         st.session_state["hugim_df"] = None
         st.session_state["prefs_df"] = None
 
-        with st.spinner(f"Loading configuration for '{camp_name}'..."):
-            config = googlesheets.read_config(camp_name)
-            if config:
-                st.session_state["pending_config"] = config
-                # Load data if available
-                if 'hugim_df' in config and not config['hugim_df'].empty:
-                    st.session_state["hugim_df"] = config['hugim_df']
-                if 'prefs_df' in config and not config['prefs_df'].empty:
-                    st.session_state["prefs_df"] = config['prefs_df']
-                if 'assignments_df' in config and not config['assignments_df'].empty:
-                    st.session_state["assignments_df"] = config['assignments_df']
-                st.sidebar.success(f"Configuration loaded!")
-            else:
-                st.sidebar.info("No existing configuration found. A new one will be created upon save.")
+        if not is_new_camp:
+            with st.spinner(f"Loading configuration for '{camp_name_input}'..."):
+                config = googlesheets.read_config(camp_name_input)
+                if config:
+                    st.session_state["pending_config"] = config
+                    # Load data if available
+                    if 'hugim_df' in config and not config['hugim_df'].empty:
+                        st.session_state["hugim_df"] = config['hugim_df']
+                    if 'prefs_df' in config and not config['prefs_df'].empty:
+                        st.session_state["prefs_df"] = config['prefs_df']
+                    if 'assignments_df' in config and not config['assignments_df'].empty:
+                        st.session_state["assignments_df"] = config['assignments_df']
+                    st.sidebar.success(f"Configuration loaded!")
+                else:
+                    st.sidebar.warning("Camp found in list but failed to load config.")
+        # If it is a new camp, we just proceed with empty state
 
     # Save Logic
     if st.sidebar.button("Save Camp Configuration"):
-        if not camp_name:
+        if not camp_name_input:
             st.sidebar.error("Please enter a Camp Name.")
         elif "hugname" not in st.session_state:
             st.sidebar.error("Please configure the columns and periods before saving.")
@@ -151,9 +169,12 @@ def main():
                  assignments_df_save = st.session_state.get("assignments_df")
 
                  with st.sidebar.status("Saving to Master Spreadsheet..."):
-                     success = googlesheets.save_camp_state(camp_name, config_data, hugim_df_save, prefs_df_save, assignments_df_save)
+                     # Note: save_camp_state uses default spreadsheet ID
+                     success = googlesheets.save_camp_state(camp_name_input, config_data, hugim_df_save, prefs_df_save, assignments_df_save)
                      if success:
                          st.sidebar.success("Configuration and data saved successfully!")
+                         # Refresh cache since we added a new camp
+                         get_cached_camp_names.clear()
                      else:
                          st.sidebar.error("Failed to save configuration.")
              except Exception as e:
@@ -181,6 +202,87 @@ def main():
                 st.sidebar.success("Trash emptied successfully.")
             else:
                 st.sidebar.error("Failed to empty trash.")
+
+    st.sidebar.markdown("---")
+
+    # ---------------------------------------------------------
+    # ADMIN ACCESS
+    # ---------------------------------------------------------
+    with st.sidebar.expander("Admin Access"):
+        admin_password = st.secrets.get("admin_password")
+        password_input = st.text_input("Enter Admin Password", type="password")
+
+        if admin_password and password_input == admin_password:
+            st.success("Access Granted")
+
+            # Master Sheet ID override
+            admin_sid = st.text_input("Master Spreadsheet ID (Optional)",
+                                      help="Leave empty to use the default configured ID.")
+            active_sid = admin_sid if admin_sid else None
+
+            # List Camps
+            st.write("### Existing Camps")
+            if st.button("Refresh Camp List"):
+                 get_cached_camp_names.clear()
+
+            existing_camps = get_cached_camp_names(active_sid)
+            st.write(existing_camps)
+
+            # Rename Camp
+            st.write("### Rename Camp")
+            rename_camp_select = st.selectbox("Select Camp to Rename", [""] + existing_camps)
+            rename_new_name = st.text_input("New Name")
+            if st.button("Rename Camp"):
+                if rename_camp_select and rename_new_name:
+                    if rename_new_name in existing_camps:
+                        st.error("New name already exists!")
+                    else:
+                        with st.spinner("Renaming tabs..."):
+                            if googlesheets.rename_camp_tabs(rename_camp_select, rename_new_name, active_sid):
+                                st.success(f"Renamed {rename_camp_select} to {rename_new_name}")
+                                get_cached_camp_names.clear()
+                                st.rerun()
+                else:
+                    st.error("Select a camp and enter a new name.")
+
+            # Delete Camp
+            st.write("### Delete Camp")
+            delete_camp_select = st.selectbox("Select Camp to Delete", [""] + existing_camps)
+
+            if "confirm_delete" not in st.session_state:
+                st.session_state.confirm_delete = False
+
+            if st.button("Delete Camp"):
+                if delete_camp_select:
+                    st.session_state.confirm_delete = True
+                else:
+                    st.error("Select a camp to delete.")
+
+            if st.session_state.confirm_delete and delete_camp_select == st.session_state.get("delete_candidate", delete_camp_select):
+                st.session_state["delete_candidate"] = delete_camp_select
+                st.warning(f"Are you sure you want to delete all data for '{delete_camp_select}'?")
+                col_del_1, col_del_2 = st.columns(2)
+                with col_del_1:
+                    if st.button("Yes, DELETE"):
+                         with st.spinner("Deleting tabs..."):
+                            if googlesheets.delete_camp_tabs(delete_camp_select, active_sid):
+                                st.success(f"Deleted {delete_camp_select}")
+                                get_cached_camp_names.clear()
+                                st.session_state.confirm_delete = False
+                                del st.session_state["delete_candidate"]
+                                st.rerun()
+                with col_del_2:
+                    if st.button("Cancel"):
+                        st.session_state.confirm_delete = False
+                        if "delete_candidate" in st.session_state:
+                            del st.session_state["delete_candidate"]
+                        st.rerun()
+            elif st.session_state.confirm_delete:
+                # User changed selection after clicking delete
+                st.session_state.confirm_delete = False
+
+        elif password_input:
+            st.error("Incorrect Password")
 
     # ---------------------------------------------------------
     # MAIN APP
