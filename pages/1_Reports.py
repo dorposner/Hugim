@@ -461,21 +461,28 @@ with tab5:
                 # CamperID -> {Prefix_1: Activity, ...}
                 # We need to know which prefix corresponds to which period
 
+                # FIX: Normalize CamperID in prefs to string to prevent mismatch
+                prefs_copy = prefs_df.copy()
+                prefs_copy[camper_id_col] = prefs_copy[camper_id_col].astype(str).str.strip()
+
                 # Map CamperID -> Row in prefs_df
-                prefs_lookup = prefs_df.set_index(camper_id_col).to_dict('index')
+                prefs_lookup = prefs_copy.set_index(camper_id_col).to_dict('index')
 
                 PREF_POINTS = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
 
                 # Helper to find rank
                 def get_pref_rank(cid, period, activity):
-                    if cid not in prefs_lookup:
+                    # Ensure cid is string for lookup
+                    cid_str = str(cid).strip()
+
+                    if cid_str not in prefs_lookup:
                         return None
 
                     prefix = st.session_state.get(f"pref_prefix_{period}")
                     if not prefix:
                         return None
 
-                    p_row = prefs_lookup[cid]
+                    p_row = prefs_lookup[cid_str]
 
                     # Check 1 to 5
                     for r in range(1, 6):
@@ -495,6 +502,9 @@ with tab5:
                     if pd.isna(cid) or str(cid).strip() == "":
                         continue
 
+                    # FIX: Normalize CamperID to string for lookup logic
+                    cid_str = str(cid).strip()
+
                     new_week_score = 0
 
                     for period in periods:
@@ -505,11 +515,11 @@ with tab5:
                             assigned_act = row[assign_col]
 
                             if pd.isna(assigned_act) or str(assigned_act).strip() == "":
-                                 # Unassigned
-                                 updated_df.at[index, how_col] = "" # Clear how
+                                 # Unassigned - Clear metadata
+                                 updated_df.at[index, how_col] = ""
                             else:
                                 # Check if it matches a preference
-                                rank = get_pref_rank(cid, period, assigned_act)
+                                rank = get_pref_rank(cid_str, period, assigned_act)
 
                                 if rank:
                                     updated_df.at[index, how_col] = f"Pref_{rank}"
@@ -524,7 +534,13 @@ with tab5:
                                     # But we can't easily know if it was changed without row-by-row comparison with original.
                                     # Let's try to preserve "Random" if the activity matches the original activity.
 
-                                    original_row = assignments_df[assignments_df["CamperID"] == cid]
+                                    # Need to lookup original row safely using string comparison for ID
+                                    # Assignments DF might have different types
+                                    assignments_df_safe = assignments_df.copy()
+                                    assignments_df_safe["CamperID"] = assignments_df_safe["CamperID"].astype(str).str.strip()
+
+                                    original_row = assignments_df_safe[assignments_df_safe["CamperID"] == cid_str]
+
                                     if not original_row.empty:
                                         orig_act = original_row.iloc[0].get(assign_col)
                                         orig_how = original_row.iloc[0].get(how_col)
