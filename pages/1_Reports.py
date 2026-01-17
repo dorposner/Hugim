@@ -1,5 +1,8 @@
 import streamlit as st
 import pandas as pd
+from fpdf import FPDF
+import googlesheets
+
 try:
     import plotly.express as px
     HAS_PLOTLY = True
@@ -49,12 +52,55 @@ if prefs_df is not None:
             name_val = row[found_col]
             name_map[cid] = name_val
 
+# Helper for PDF
+def generate_pdf(df_roster, title="Camp Roster"):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+
+    # Check required columns
+    required = ['Activity', 'Period', 'CamperID']
+    if not all(col in df_roster.columns for col in required):
+        return None
+
+    # Group by Activity and Period
+    groups = df_roster.groupby(['Activity', 'Period'])
+
+    for (activity, period), group in groups:
+        pdf.add_page()
+        pdf.set_font("Arial", 'B', 16)
+        pdf.cell(0, 10, f"{title}", ln=True, align='C')
+        pdf.set_font("Arial", 'B', 14)
+        pdf.cell(0, 10, f"Activity: {activity}", ln=True, align='L')
+        pdf.cell(0, 10, f"Period: {period}", ln=True, align='L')
+        pdf.ln(5)
+
+        # Table Header
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(40, 10, "Camper ID", 1)
+        pdf.cell(80, 10, "Name", 1)
+        pdf.cell(60, 10, "Type", 1)
+        pdf.ln()
+
+        # Rows
+        pdf.set_font("Arial", '', 12)
+        for _, row in group.iterrows():
+            cid = str(row['CamperID'])
+            name = str(row.get('Name', ''))
+            atype = str(row.get('Assignment Type', ''))
+
+            pdf.cell(40, 10, cid[:15], 1)
+            pdf.cell(80, 10, name[:35], 1)
+            pdf.cell(60, 10, atype[:25], 1)
+            pdf.ln()
+
+    return pdf.output(dest='S').encode('latin-1', 'replace')
+
 st.title("📊 Reports & Insights")
 
 # ---------------------------------------------------------
 # TABS
 # ---------------------------------------------------------
-tab1, tab2, tab3, tab4 = st.tabs(["Activity Rosters", "Camper Lookup", "Capacity Overview", "Analytics & Stats"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Activity Rosters", "Camper Lookup", "Capacity Overview", "Analytics & Stats", "Manual Edits"])
 
 # =========================================================
 # TAB 1: ACTIVITY ROSTERS
@@ -73,16 +119,24 @@ with tab1:
                 all_acts.update(assignments_df[f"{p}_Assigned"].dropna().unique())
         all_activities = sorted(list(all_acts))
 
-    # Filters (In main area to avoid sidebar clutter across tabs)
+    # Filters
     col_f1, col_f2 = st.columns(2)
     with col_f1:
-        selected_activity = st.selectbox("Select Activity", all_activities)
+        # Multi-select logic with "Select All"
+        select_all = st.checkbox("Select All Activities")
+        if select_all:
+            selected_activities = all_activities
+            # Show disabled multiselect for visual feedback
+            st.multiselect("Select Activity", all_activities, default=all_activities, disabled=True)
+        else:
+            selected_activities = st.multiselect("Select Activity", all_activities)
+
     with col_f2:
         selected_periods = st.multiselect("Select Period(s)", periods, default=periods)
 
     show_detailed = st.checkbox("Show detailed info (Assignment Type)")
 
-    if selected_activity and selected_periods:
+    if selected_activities and selected_periods:
         # Build the roster
         roster_rows = []
         for period in selected_periods:
@@ -90,22 +144,24 @@ with tab1:
             how_col = f"{period}_How"
 
             if assign_col in assignments_df.columns:
-                # Filter
-                filtered = assignments_df[assignments_df[assign_col] == selected_activity]
+                # Filter: Activity must be in selected_activities
+                filtered = assignments_df[assignments_df[assign_col].isin(selected_activities)]
 
                 for _, row in filtered.iterrows():
                     cid = row["CamperID"]
+                    assigned_act = row[assign_col]
+
                     data = {
                         "CamperID": cid,
                         "Period": period,
+                        "Activity": assigned_act
                     }
                     # Add Name if available
                     name_val = name_map.get(str(cid), "")
                     if name_val:
                         data["Name"] = name_val
 
-                    if show_detailed:
-                        data["Assignment Type"] = row.get(how_col, "")
+                    data["Assignment Type"] = row.get(how_col, "")
 
                     roster_rows.append(data)
 
@@ -115,6 +171,7 @@ with tab1:
             if "Name" in roster_rows[0]:
                 cols_order.append("Name")
             cols_order.append("Period")
+            cols_order.append("Activity")
             if show_detailed:
                 cols_order.append("Assignment Type")
 
@@ -125,18 +182,34 @@ with tab1:
 
             st.dataframe(roster_df, use_container_width=True)
 
-            csv = roster_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "⬇️ Download Roster as CSV",
-                csv,
-                f"roster_{selected_activity}.csv",
-                "text/csv",
-                key='download-roster'
-            )
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                csv = roster_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    "⬇️ Download Roster as CSV",
+                    csv,
+                    f"roster_export.csv",
+                    "text/csv",
+                    key='download-roster-csv'
+                )
+            with col_d2:
+                # PDF Generation
+                try:
+                    pdf_bytes = generate_pdf(roster_df)
+                    if pdf_bytes:
+                        st.download_button(
+                            "⬇️ Download Roster as PDF",
+                            pdf_bytes,
+                            "roster_export.pdf",
+                            "application/pdf",
+                            key='download-roster-pdf'
+                        )
+                except Exception as e:
+                    st.error(f"Error generating PDF: {e}")
         else:
-            st.info(f"No campers assigned to {selected_activity} for selected periods.")
+            st.info(f"No campers assigned to selected activities/periods.")
     else:
-        st.info("Select an activity and at least one period.")
+        st.info("Select at least one activity and one period.")
 
 # =========================================================
 # TAB 2: CAMPER LOOKUP
@@ -358,3 +431,165 @@ with tab4:
 
     else:
         st.info("Preference data not available for detailed analytics.")
+
+# =========================================================
+# TAB 5: MANUAL EDITS
+# =========================================================
+with tab5:
+    st.header("✏️ Manual Editor (Super Admin)")
+    st.info("Changes made here bypass capacity constraints and will trigger a recalculation of satisfaction scores.")
+
+    # 1. Edit
+    # Load from session state to ensure we have the latest
+    current_df = st.session_state["assignments_df"]
+
+    # Use st.data_editor (Fixed rows to prevent adding incomplete camper rows)
+    edited_df = st.data_editor(current_df, key="manual_editor", num_rows="fixed")
+
+    # 2. Check for changes and Save
+    # We compare edited_df with stored state. Since data_editor is reactive,
+    # we can check if they are equal.
+    # However, comparison with NaNs can be tricky.
+
+    # We use a button to "Commit & Save" to be explicit and avoid infinite loops or partial state updates
+    if st.button("💾 Save Changes & Recalculate Scores"):
+
+        # --- Smart Recalculation Logic ---
+        # Iterate through rows and update Metadata (_How and Week_Score)
+        # We need prefs_df for this
+        if prefs_df is None:
+            st.error("Cannot recalculate scores: Preferences data missing.")
+        elif camper_id_col not in prefs_df.columns:
+            st.error(f"Cannot recalculate scores: Camper ID column '{camper_id_col}' not found in preferences.")
+        else:
+            # Create lookup for prefs
+            # CamperID -> {Prefix_1: Activity, ...}
+            # We need to know which prefix corresponds to which period
+
+            # Map CamperID -> Row in prefs_df
+            prefs_lookup = prefs_df.set_index(camper_id_col).to_dict('index')
+
+            PREF_POINTS = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
+
+            # Helper to find rank
+            def get_pref_rank(cid, period, activity):
+                if cid not in prefs_lookup:
+                    return None
+
+                prefix = st.session_state.get(f"pref_prefix_{period}")
+                if not prefix:
+                    return None
+
+                p_row = prefs_lookup[cid]
+
+                # Check 1 to 5
+                for r in range(1, 6):
+                    col = f"{prefix}_{r}"
+                    if col in p_row:
+                        val = p_row[col]
+                        if str(val).strip() == str(activity).strip():
+                            return r
+                return None
+
+            # Process the edited dataframe
+            updated_df = edited_df.copy()
+
+            # We iterate all rows to ensure consistency
+            for index, row in updated_df.iterrows():
+                cid = row.get("CamperID")
+                if pd.isna(cid) or str(cid).strip() == "":
+                    continue
+
+                new_week_score = 0
+
+                for period in periods:
+                    assign_col = f"{period}_Assigned"
+                    how_col = f"{period}_How"
+
+                    if assign_col in row:
+                        assigned_act = row[assign_col]
+
+                        if pd.isna(assigned_act) or str(assigned_act).strip() == "":
+                             # Unassigned
+                             updated_df.at[index, how_col] = "" # Clear how
+                        else:
+                            # Check if it matches a preference
+                            rank = get_pref_rank(cid, period, assigned_act)
+
+                            if rank:
+                                updated_df.at[index, how_col] = f"Pref_{rank}"
+                                new_week_score += PREF_POINTS.get(rank, 0)
+                            else:
+                                # Did the user change it?
+                                # Even if they didn't, if it's not a pref, it's effectively a manual/random fill.
+                                # If it was "Random" before, and still matches "Random", we could keep it.
+                                # BUT the requirement says: "If not, set it to Manual_Override."
+                                # We will stick to the requirement for simplicity and clarity of "Manual Edits".
+                                # Exception: If it WAS Random/Forced and wasn't changed, maybe keep it?
+                                # But we can't easily know if it was changed without row-by-row comparison with original.
+                                # Let's try to preserve "Random" if the activity matches the original activity.
+
+                                original_row = assignments_df[assignments_df["CamperID"] == cid]
+                                if not original_row.empty:
+                                    orig_act = original_row.iloc[0].get(assign_col)
+                                    orig_how = original_row.iloc[0].get(how_col)
+
+                                    if str(orig_act) == str(assigned_act) and ("Random" in str(orig_how) or "Forced" in str(orig_how)):
+                                        # Keep original reason if activity didn't change and was system-assigned
+                                        updated_df.at[index, how_col] = orig_how
+                                        # Random/Forced usually 0 points?
+                                        # If logic elsewhere awards points for Random, we miss it here.
+                                        # Usually points are only for Prefs.
+                                    else:
+                                        updated_df.at[index, how_col] = "Manual_Override"
+                                else:
+                                     updated_df.at[index, how_col] = "Manual_Override"
+
+                updated_df.at[index, "Week_Score"] = new_week_score
+
+            # Update Session State
+            st.session_state["assignments_df"] = updated_df
+
+            # --- Auto-Save to Cloud ---
+            current_camp = st.session_state.get("current_camp_name")
+            if current_camp:
+                # Reconstruct config_data
+                # We need to gather periods and prefixes
+                save_periods = st.session_state.get("periods_selected", [])
+                prefixes = {}
+                all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
+                for key in all_period_keys:
+                    p_name = key.replace("pref_prefix_", "")
+                    prefixes[p_name] = st.session_state[key]
+                    if p_name not in save_periods:
+                        save_periods.append(p_name)
+
+                config_data = {
+                    'config': {
+                        'col_hug_name': st.session_state.get("hugname"),
+                        'col_capacity': st.session_state.get("capacity"),
+                        'col_minimum': st.session_state.get("min_campers"),
+                        'col_camper_id': st.session_state.get("camperid"),
+                        'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
+                    },
+                    'periods': save_periods,
+                    'preference_prefixes': prefixes
+                }
+
+                with st.spinner("Saving changes to cloud..."):
+                    success = googlesheets.save_camp_state(
+                        current_camp,
+                        config_data,
+                        st.session_state.get("hugim_df"),
+                        prefs_df,
+                        updated_df
+                    )
+
+                    if success:
+                        st.toast("Manual changes saved & scores recalculated.", icon="✅")
+                        st.rerun()
+                    else:
+                        st.error("Failed to save to cloud.")
+            else:
+                st.warning("No active camp name found. Saved to local session only.")
+                st.rerun()
