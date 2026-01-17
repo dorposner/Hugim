@@ -224,7 +224,7 @@ with tab2:
     selected_camper = st.selectbox("Search Camper (ID)", all_campers, format_func=format_func)
 
     if selected_camper:
-        camper_row = assignments_df[assignments_df["CamperID"] == selected_camper].iloc[0]
+        camper_row = assignments_df[assignments_df["CamperID"].astype(str) == selected_camper].iloc[0]
 
         # Satisfaction Score
         score = camper_row.get("Week_Score", 0)
@@ -447,136 +447,130 @@ with tab5:
     edited_df = st.data_editor(current_df, key="manual_editor", num_rows="fixed")
 
     # 2. Check for changes and Save
-    # We compare edited_df with stored state. Since data_editor is reactive,
-    # we can check if they are equal.
-    # However, comparison with NaNs can be tricky.
+    if not edited_df.equals(current_df):
+        with st.spinner("Processing updates..."):
+            # --- Smart Recalculation Logic ---
+            # Iterate through rows and update Metadata (_How and Week_Score)
+            # We need prefs_df for this
+            if prefs_df is None:
+                st.error("Cannot recalculate scores: Preferences data missing.")
+            elif camper_id_col not in prefs_df.columns:
+                st.error(f"Cannot recalculate scores: Camper ID column '{camper_id_col}' not found in preferences.")
+            else:
+                # Create lookup for prefs
+                # CamperID -> {Prefix_1: Activity, ...}
+                # We need to know which prefix corresponds to which period
 
-    # We use a button to "Commit & Save" to be explicit and avoid infinite loops or partial state updates
-    if st.button("💾 Save Changes & Recalculate Scores"):
+                # Map CamperID -> Row in prefs_df
+                prefs_lookup = prefs_df.set_index(camper_id_col).to_dict('index')
 
-        # --- Smart Recalculation Logic ---
-        # Iterate through rows and update Metadata (_How and Week_Score)
-        # We need prefs_df for this
-        if prefs_df is None:
-            st.error("Cannot recalculate scores: Preferences data missing.")
-        elif camper_id_col not in prefs_df.columns:
-            st.error(f"Cannot recalculate scores: Camper ID column '{camper_id_col}' not found in preferences.")
-        else:
-            # Create lookup for prefs
-            # CamperID -> {Prefix_1: Activity, ...}
-            # We need to know which prefix corresponds to which period
+                PREF_POINTS = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
 
-            # Map CamperID -> Row in prefs_df
-            prefs_lookup = prefs_df.set_index(camper_id_col).to_dict('index')
+                # Helper to find rank
+                def get_pref_rank(cid, period, activity):
+                    if cid not in prefs_lookup:
+                        return None
 
-            PREF_POINTS = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
+                    prefix = st.session_state.get(f"pref_prefix_{period}")
+                    if not prefix:
+                        return None
 
-            # Helper to find rank
-            def get_pref_rank(cid, period, activity):
-                if cid not in prefs_lookup:
+                    p_row = prefs_lookup[cid]
+
+                    # Check 1 to 5
+                    for r in range(1, 6):
+                        col = f"{prefix}_{r}"
+                        if col in p_row:
+                            val = p_row[col]
+                            if str(val).strip() == str(activity).strip():
+                                return r
                     return None
 
-                prefix = st.session_state.get(f"pref_prefix_{period}")
-                if not prefix:
-                    return None
+                # Process the edited dataframe
+                updated_df = edited_df.copy()
 
-                p_row = prefs_lookup[cid]
+                # We iterate all rows to ensure consistency
+                for index, row in updated_df.iterrows():
+                    cid = row.get("CamperID")
+                    if pd.isna(cid) or str(cid).strip() == "":
+                        continue
 
-                # Check 1 to 5
-                for r in range(1, 6):
-                    col = f"{prefix}_{r}"
-                    if col in p_row:
-                        val = p_row[col]
-                        if str(val).strip() == str(activity).strip():
-                            return r
-                return None
+                    new_week_score = 0
 
-            # Process the edited dataframe
-            updated_df = edited_df.copy()
+                    for period in periods:
+                        assign_col = f"{period}_Assigned"
+                        how_col = f"{period}_How"
 
-            # We iterate all rows to ensure consistency
-            for index, row in updated_df.iterrows():
-                cid = row.get("CamperID")
-                if pd.isna(cid) or str(cid).strip() == "":
-                    continue
+                        if assign_col in row:
+                            assigned_act = row[assign_col]
 
-                new_week_score = 0
-
-                for period in periods:
-                    assign_col = f"{period}_Assigned"
-                    how_col = f"{period}_How"
-
-                    if assign_col in row:
-                        assigned_act = row[assign_col]
-
-                        if pd.isna(assigned_act) or str(assigned_act).strip() == "":
-                             # Unassigned
-                             updated_df.at[index, how_col] = "" # Clear how
-                        else:
-                            # Check if it matches a preference
-                            rank = get_pref_rank(cid, period, assigned_act)
-
-                            if rank:
-                                updated_df.at[index, how_col] = f"Pref_{rank}"
-                                new_week_score += PREF_POINTS.get(rank, 0)
+                            if pd.isna(assigned_act) or str(assigned_act).strip() == "":
+                                 # Unassigned
+                                 updated_df.at[index, how_col] = "" # Clear how
                             else:
-                                # Did the user change it?
-                                # Even if they didn't, if it's not a pref, it's effectively a manual/random fill.
-                                # If it was "Random" before, and still matches "Random", we could keep it.
-                                # BUT the requirement says: "If not, set it to Manual_Override."
-                                # We will stick to the requirement for simplicity and clarity of "Manual Edits".
-                                # Exception: If it WAS Random/Forced and wasn't changed, maybe keep it?
-                                # But we can't easily know if it was changed without row-by-row comparison with original.
-                                # Let's try to preserve "Random" if the activity matches the original activity.
+                                # Check if it matches a preference
+                                rank = get_pref_rank(cid, period, assigned_act)
 
-                                original_row = assignments_df[assignments_df["CamperID"] == cid]
-                                if not original_row.empty:
-                                    orig_act = original_row.iloc[0].get(assign_col)
-                                    orig_how = original_row.iloc[0].get(how_col)
-
-                                    if str(orig_act) == str(assigned_act) and ("Random" in str(orig_how) or "Forced" in str(orig_how)):
-                                        # Keep original reason if activity didn't change and was system-assigned
-                                        updated_df.at[index, how_col] = orig_how
-                                        # Random/Forced usually 0 points?
-                                        # If logic elsewhere awards points for Random, we miss it here.
-                                        # Usually points are only for Prefs.
-                                    else:
-                                        updated_df.at[index, how_col] = "Manual_Override"
+                                if rank:
+                                    updated_df.at[index, how_col] = f"Pref_{rank}"
+                                    new_week_score += PREF_POINTS.get(rank, 0)
                                 else:
-                                     updated_df.at[index, how_col] = "Manual_Override"
+                                    # Did the user change it?
+                                    # Even if they didn't, if it's not a pref, it's effectively a manual/random fill.
+                                    # If it was "Random" before, and still matches "Random", we could keep it.
+                                    # BUT the requirement says: "If not, set it to Manual_Override."
+                                    # We will stick to the requirement for simplicity and clarity of "Manual Edits".
+                                    # Exception: If it WAS Random/Forced and wasn't changed, maybe keep it?
+                                    # But we can't easily know if it was changed without row-by-row comparison with original.
+                                    # Let's try to preserve "Random" if the activity matches the original activity.
 
-                updated_df.at[index, "Week_Score"] = new_week_score
+                                    original_row = assignments_df[assignments_df["CamperID"] == cid]
+                                    if not original_row.empty:
+                                        orig_act = original_row.iloc[0].get(assign_col)
+                                        orig_how = original_row.iloc[0].get(how_col)
 
-            # Update Session State
-            st.session_state["assignments_df"] = updated_df
+                                        if str(orig_act) == str(assigned_act) and ("Random" in str(orig_how) or "Forced" in str(orig_how)):
+                                            # Keep original reason if activity didn't change and was system-assigned
+                                            updated_df.at[index, how_col] = orig_how
+                                            # Random/Forced usually 0 points?
+                                            # If logic elsewhere awards points for Random, we miss it here.
+                                            # Usually points are only for Prefs.
+                                        else:
+                                            updated_df.at[index, how_col] = "Manual_Override"
+                                    else:
+                                         updated_df.at[index, how_col] = "Manual_Override"
 
-            # --- Auto-Save to Cloud ---
-            current_camp = st.session_state.get("current_camp_name")
-            if current_camp:
-                # Reconstruct config_data
-                # We need to gather periods and prefixes
-                save_periods = st.session_state.get("periods_selected", [])
-                prefixes = {}
-                all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
-                for key in all_period_keys:
-                    p_name = key.replace("pref_prefix_", "")
-                    prefixes[p_name] = st.session_state[key]
-                    if p_name not in save_periods:
-                        save_periods.append(p_name)
+                    updated_df.at[index, "Week_Score"] = new_week_score
 
-                config_data = {
-                    'config': {
-                        'col_hug_name': st.session_state.get("hugname"),
-                        'col_capacity': st.session_state.get("capacity"),
-                        'col_minimum': st.session_state.get("min_campers"),
-                        'col_camper_id': st.session_state.get("camperid"),
-                        'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
-                    },
-                    'periods': save_periods,
-                    'preference_prefixes': prefixes
-                }
+                # Update Session State
+                st.session_state["assignments_df"] = updated_df
 
-                with st.spinner("Saving changes to cloud..."):
+                # --- Auto-Save to Cloud ---
+                current_camp = st.session_state.get("current_camp_name")
+                if current_camp:
+                    # Reconstruct config_data
+                    # We need to gather periods and prefixes
+                    save_periods = st.session_state.get("periods_selected", [])
+                    prefixes = {}
+                    all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
+                    for key in all_period_keys:
+                        p_name = key.replace("pref_prefix_", "")
+                        prefixes[p_name] = st.session_state[key]
+                        if p_name not in save_periods:
+                            save_periods.append(p_name)
+
+                    config_data = {
+                        'config': {
+                            'col_hug_name': st.session_state.get("hugname"),
+                            'col_capacity': st.session_state.get("capacity"),
+                            'col_minimum': st.session_state.get("min_campers"),
+                            'col_camper_id': st.session_state.get("camperid"),
+                            'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
+                        },
+                        'periods': save_periods,
+                        'preference_prefixes': prefixes
+                    }
+
                     success = googlesheets.save_camp_state(
                         current_camp,
                         config_data,
@@ -586,10 +580,10 @@ with tab5:
                     )
 
                     if success:
-                        st.toast("Manual changes saved & scores recalculated.", icon="✅")
+                        st.toast("Changes saved & scores updated.", icon="✅")
                         st.rerun()
                     else:
                         st.error("Failed to save to cloud.")
-            else:
-                st.warning("No active camp name found. Saved to local session only.")
-                st.rerun()
+                else:
+                    st.warning("No active camp name found. Saved to local session only.")
+                    st.rerun()
