@@ -46,11 +46,19 @@ def init_session():
         "pending_config", # NEW: For config loading
         "current_camp_name", # NEW: Track camp name
         "hugim_df",
-        "prefs_df"
+        "prefs_df",
+        "user_email",
+        "user_role"
     ]
     for key in keys:
         if key not in st.session_state:
             st.session_state[key] = None
+
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
+
+    if "config_loaded_flag" not in st.session_state:
+        st.session_state["config_loaded_flag"] = False
 
     if "uploader_id" not in st.session_state:
         st.session_state["uploader_id"] = 0
@@ -81,7 +89,49 @@ def find_best_column_match(columns, target_names):
     
     return 0  # Default to first column if no match
 
+def login_screen():
+    st.markdown("<h1 style='text-align: center;'>🏕️ Camp Hugim Allocator</h1>", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        tab1, tab2 = st.tabs(["Login", "Sign Up"])
+
+        with tab1:
+            st.subheader("Login")
+            email = st.text_input("Email", key="login_email")
+            password = st.text_input("Password", type="password", key="login_password")
+            if st.button("Login", use_container_width=True):
+                with st.spinner("Authenticating..."):
+                    user = googlesheets.authenticate_user(email, password)
+                    if user:
+                        st.session_state["authenticated"] = True
+                        st.session_state["user_email"] = user['email']
+                        st.session_state["current_camp_name"] = user['camp_name']
+                        st.session_state["user_role"] = user['role']
+                        st.success(f"Welcome back!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid email or password")
+
+        with tab2:
+            st.subheader("Sign Up")
+            new_email = st.text_input("Email", key="signup_email")
+            new_password = st.text_input("Password", type="password", key="signup_password")
+            new_camp = st.text_input("Camp Name", help="This will be your unique camp ID (e.g. MyCamp2024)", key="signup_camp")
+
+            if st.button("Create Account", use_container_width=True):
+                with st.spinner("Creating account..."):
+                    success, msg = googlesheets.create_user(new_email, new_password, new_camp)
+                    if success:
+                        st.success("Account created successfully! Please go to the Login tab.")
+                    else:
+                        st.error(f"Error: {msg}")
+
 def main():
+    if not st.session_state.get("authenticated", False):
+        login_screen()
+        return
+
     if "allocation_run" not in st.session_state:
         st.session_state["allocation_run"] = False
     if "last_upload_key" not in st.session_state:
@@ -91,7 +141,19 @@ def main():
     # SIDEBAR FOR CAMP CONFIGURATION
     # ---------------------------------------------------------
     st.sidebar.title("Camp Configuration")
-    camp_name_input = st.sidebar.text_input("Camp Name / ID", value=st.session_state.get("current_camp_name") or "")
+
+    # Authenticated User Info
+    user_email = st.session_state.get("user_email", "Unknown")
+    current_camp = st.session_state.get("current_camp_name")
+
+    st.sidebar.markdown(f"**User:** {user_email}")
+    st.sidebar.markdown(f"**Camp:** {current_camp}")
+
+    if st.sidebar.button("Logout", key="logout_btn"):
+        st.session_state.clear()
+        st.rerun()
+
+    camp_name_input = current_camp
 
     # SAFETY MECHANISM
     # Check if camp exists immediately
@@ -106,8 +168,9 @@ def main():
             st.sidebar.info("New Camp. Will be created upon saving.")
 
     # Load Logic
-    if camp_name_input and camp_name_input != st.session_state.get("current_camp_name"):
-        st.session_state["current_camp_name"] = camp_name_input
+    if camp_name_input and not st.session_state.get("config_loaded_flag", False):
+        st.session_state["config_loaded_flag"] = True
+
         # Reset uploaders when switching camp
         st.session_state["uploader_id"] += 1
         st.session_state["hugim_df"] = None

@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import bcrypt
+import datetime
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -19,6 +21,7 @@ SCOPES = [
 ]
 
 MASTER_SPREADSHEET_ID = "1E3PXe2LQfscI9vjJVqJRsBK9rhCRV8J-6rcrGMn_7XM"
+USERS_DB_TAB_NAME = 'users_db'
 
 def get_credentials():
     """Retrieves credentials from Streamlit secrets."""
@@ -496,3 +499,170 @@ def save_camp_state(camp_name, config_data, hugim_df=None, prefs_df=None, assign
     except Exception as e:
         st.error(f"Raw Error from Google (save_camp_state): {e}")
         return False
+
+def init_user_db(spreadsheet_id=None):
+    """Checks if users_db tab exists, creates it if not."""
+    if not GOOGLE_LIB_AVAILABLE:
+        return False
+
+    sheets_service, _ = init_services()
+    if not sheets_service:
+        return False
+
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    try:
+        sheet_metadata = sheets_service.spreadsheets().get(spreadsheetId=sid).execute()
+        existing_titles = [s['properties']['title'] for s in sheet_metadata.get('sheets', [])]
+
+        if USERS_DB_TAB_NAME not in existing_titles:
+            # Create the sheet
+            requests = [{
+                'addSheet': {
+                    'properties': {'title': USERS_DB_TAB_NAME}
+                }
+            }]
+            sheets_service.spreadsheets().batchUpdate(
+                spreadsheetId=sid,
+                body={'requests': requests}
+            ).execute()
+
+            # Add headers
+            headers = [['email', 'password_hash', 'camp_name', 'role', 'created_at']]
+            body = {
+                'values': headers
+            }
+            sheets_service.spreadsheets().values().update(
+                spreadsheetId=sid,
+                range=f"{USERS_DB_TAB_NAME}!A1",
+                valueInputOption='RAW',
+                body=body
+            ).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error initializing user DB: {e}")
+        return False
+
+def hash_password(password):
+    """Hashes a password using bcrypt."""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def check_password(password, hashed):
+    """Verifies a password against a hash."""
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    except ValueError:
+        return False
+
+def get_users(spreadsheet_id=None):
+    """Retrieves all users from the database."""
+    if not GOOGLE_LIB_AVAILABLE:
+        return []
+
+    sheets_service, _ = init_services()
+    if not sheets_service:
+        return []
+
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    try:
+        # Ensure DB exists
+        if not init_user_db(spreadsheet_id):
+             return []
+
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=sid, range=f"{USERS_DB_TAB_NAME}!A:E").execute()
+        values = result.get('values', [])
+
+        if not values:
+            return []
+
+        # headers = values[0]
+        data = values[1:]
+
+        users = []
+        for row in data:
+            if len(row) >= 3: # Minimal required fields
+                user = {
+                    'email': row[0],
+                    'password_hash': row[1] if len(row) > 1 else '',
+                    'camp_name': row[2] if len(row) > 2 else '',
+                    'role': row[3] if len(row) > 3 else 'user',
+                    'created_at': row[4] if len(row) > 4 else ''
+                }
+                users.append(user)
+        return users
+    except Exception:
+        return []
+
+def create_user(email, password, camp_name, spreadsheet_id=None):
+    """Creates a new user if email and camp_name are unique."""
+    if not GOOGLE_LIB_AVAILABLE:
+        return False, "Google libraries not loaded."
+
+    # Normalize
+    email = email.lower().strip()
+    camp_name = camp_name.strip()
+
+    if not email or not password or not camp_name:
+        return False, "All fields are required."
+
+    # Init DB to ensure it exists
+    if not init_user_db(spreadsheet_id):
+        return False, "Could not access User DB."
+
+    # Check existing users
+    users = get_users(spreadsheet_id)
+    for u in users:
+        if u['email'] == email:
+            return False, "Email already registered."
+        if u['camp_name'].lower() == camp_name.lower():
+             return False, "Camp Name already associated with another user."
+
+    # Check existing camp tabs (globally)
+    all_camps = get_all_camp_names(spreadsheet_id)
+    if any(c.lower() == camp_name.lower() for c in all_camps):
+        return False, "Camp Name already exists in the system."
+
+    # Create user
+    hashed = hash_password(password)
+    created_at = datetime.datetime.now().isoformat()
+
+    row = [email, hashed, camp_name, 'user', created_at]
+
+    sheets_service, _ = init_services()
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    try:
+        body = {
+            'values': [row]
+        }
+        sheets_service.spreadsheets().values().append(
+            spreadsheetId=sid,
+            range=f"{USERS_DB_TAB_NAME}!A1",
+            valueInputOption='RAW',
+            insertDataOption='INSERT_ROWS',
+            body=body
+        ).execute()
+        return True, "User created successfully."
+    except Exception as e:
+        return False, f"Error creating user: {e}"
+
+def authenticate_user(email, password, spreadsheet_id=None):
+    """Authenticates a user and returns their data."""
+    if not GOOGLE_LIB_AVAILABLE:
+        return None
+
+    email = email.lower().strip()
+
+    # Ensure DB exists (first run)
+    init_user_db(spreadsheet_id)
+
+    users = get_users(spreadsheet_id)
+    for u in users:
+        if u['email'] == email:
+            if check_password(password, u['password_hash']):
+                return u
+            else:
+                return None
+    return None
