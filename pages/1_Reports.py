@@ -461,13 +461,20 @@ with tab5:
                 # CamperID -> {Prefix_1: Activity, ...}
                 # We need to know which prefix corresponds to which period
 
+                # NORMALIZE PREFS: Force CamperID to string and strip to match assignments
+                temp_prefs = prefs_df.copy()
+                temp_prefs[camper_id_col] = temp_prefs[camper_id_col].astype(str).str.strip()
+
                 # Map CamperID -> Row in prefs_df
-                prefs_lookup = prefs_df.set_index(camper_id_col).to_dict('index')
+                prefs_lookup = temp_prefs.set_index(camper_id_col).to_dict('index')
 
                 PREF_POINTS = {1: 5, 2: 4, 3: 3, 4: 2, 5: 1}
 
                 # Helper to find rank
                 def get_pref_rank(cid, period, activity):
+                    # Ensure cid is string for lookup
+                    cid = str(cid).strip()
+
                     if cid not in prefs_lookup:
                         return None
 
@@ -488,6 +495,10 @@ with tab5:
 
                 # Process the edited dataframe
                 updated_df = edited_df.copy()
+
+                # NORMALIZE ASSIGNMENTS: Force CamperID to string and strip
+                if "CamperID" in updated_df.columns:
+                    updated_df["CamperID"] = updated_df["CamperID"].astype(str).str.strip()
 
                 # We iterate all rows to ensure consistency
                 for index, row in updated_df.iterrows():
