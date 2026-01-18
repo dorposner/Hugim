@@ -679,6 +679,72 @@ def admin_reset_password(email, new_password, spreadsheet_id=None):
     hashed = hash_password(new_password)
     return _update_user_field(email, 1, hashed, spreadsheet_id)
 
+def get_all_camps_analytics(progress_callback=None):
+    """
+    Iterates through all camps and returns a summary DataFrame.
+    Calculates Campers, Activities, Periods, and Unassigned Slots.
+    """
+    camp_names = get_all_camp_names()
+    analytics_data = []
+
+    total_camps = len(camp_names)
+
+    for idx, camp in enumerate(camp_names):
+        # Update progress
+        if progress_callback and total_camps > 0:
+            progress_callback((idx + 1) / total_camps)
+
+        row = {
+            'Camp Name': camp,
+            'Campers': 0,
+            'Activities': 0,
+            'Periods': 0,
+            'Unassigned Slots': 0,
+            'Status': 'OK'
+        }
+
+        try:
+            config_data = read_config(camp)
+            if config_data:
+                # Campers
+                if 'prefs_df' in config_data:
+                    row['Campers'] = len(config_data['prefs_df'])
+
+                # Activities
+                if 'hugim_df' in config_data:
+                    row['Activities'] = len(config_data['hugim_df'])
+
+                # Periods
+                if 'periods' in config_data:
+                    row['Periods'] = len(config_data['periods'])
+
+                # Unassigned Slots
+                if 'assignments_df' in config_data:
+                    df_assign = config_data['assignments_df']
+                    assigned_cols = [c for c in df_assign.columns if str(c).endswith('_Assigned')]
+
+                    unassigned_count = 0
+                    for col in assigned_cols:
+                        s = df_assign[col]
+                        # Treat None, NaN as missing
+                        mask = s.isna()
+                        # Treat empty strings as missing
+                        mask = mask | (s.astype(str).str.strip() == '')
+                        # Treat 'None' or 'nan' string literal as missing (just in case)
+                        mask = mask | (s.astype(str).str.lower().isin(['nan', 'none']))
+
+                        unassigned_count += mask.sum()
+
+                    row['Unassigned Slots'] = int(unassigned_count)
+            else:
+                 row['Status'] = 'Error (Read Failed)'
+        except Exception as e:
+            row['Status'] = f'Error: {str(e)}'
+
+        analytics_data.append(row)
+
+    return pd.DataFrame(analytics_data)
+
 def delete_user(email, spreadsheet_id=None):
     """Removes a user from users_db."""
     if not GOOGLE_LIB_AVAILABLE:
