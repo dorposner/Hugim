@@ -581,9 +581,10 @@ def get_users(spreadsheet_id=None):
         data = values[1:]
 
         users = []
-        for row in data:
-            if len(row) >= 3: # Minimal required fields
+        for i, row in enumerate(data):
+            if len(row) >= 1: # Minimal required fields
                 user = {
+                    'row_idx': i + 2, # +1 for header, +1 for 0-based index
                     'email': row[0],
                     'password_hash': row[1] if len(row) > 1 else '',
                     'camp_name': row[2] if len(row) > 2 else '',
@@ -595,8 +596,22 @@ def get_users(spreadsheet_id=None):
     except Exception:
         return []
 
-def create_user(email, password, camp_name, spreadsheet_id=None):
-    """Creates a new user if email and camp_name are unique."""
+def get_all_users(spreadsheet_id=None):
+    """Returns the entire users_db content as a pandas DataFrame (hiding password hashes)."""
+    users = get_users(spreadsheet_id)
+    if not users:
+        return pd.DataFrame(columns=['email', 'camp_name', 'role', 'created_at'])
+
+    df = pd.DataFrame(users)
+    # Drop password_hash and row_idx for display
+    return df.drop(columns=['password_hash', 'row_idx'], errors='ignore')
+
+def create_user(email, password, camp_name, spreadsheet_id=None, enforce_unique_camp=True):
+    """
+    Creates a new user.
+    enforce_unique_camp: If True, ensures no other user has this camp name.
+                         If False, allows multiple users to share a camp (for Admin adding staff).
+    """
     if not GOOGLE_LIB_AVAILABLE:
         return False, "Google libraries not loaded."
 
@@ -616,13 +631,16 @@ def create_user(email, password, camp_name, spreadsheet_id=None):
     for u in users:
         if u['email'] == email:
             return False, "Email already registered."
-        if u['camp_name'].lower() == camp_name.lower():
-             return False, "Camp Name already associated with another user."
 
-    # Check existing camp tabs (globally)
-    all_camps = get_all_camp_names(spreadsheet_id)
-    if any(c.lower() == camp_name.lower() for c in all_camps):
-        return False, "Camp Name already exists in the system."
+        if enforce_unique_camp:
+            if u['camp_name'].lower() == camp_name.lower():
+                 return False, "Camp Name already associated with another user."
+
+    if enforce_unique_camp:
+        # Check existing camp tabs (globally) to prevent hijacking existing camp data
+        all_camps = get_all_camp_names(spreadsheet_id)
+        if any(c.lower() == camp_name.lower() for c in all_camps):
+            return False, "Camp Name already exists in the system."
 
     # Create user
     hashed = hash_password(password)
@@ -647,6 +665,134 @@ def create_user(email, password, camp_name, spreadsheet_id=None):
         return True, "User created successfully."
     except Exception as e:
         return False, f"Error creating user: {e}"
+
+def update_user_role(email, new_role, spreadsheet_id=None):
+    """Updates the role for a specific user."""
+    return _update_user_field(email, 3, new_role, spreadsheet_id)
+
+def update_user_camp(email, new_camp, spreadsheet_id=None):
+    """Updates the camp association for a user."""
+    return _update_user_field(email, 2, new_camp, spreadsheet_id)
+
+def admin_reset_password(email, new_password, spreadsheet_id=None):
+    """Hashes the new password and updates the user record."""
+    hashed = hash_password(new_password)
+    return _update_user_field(email, 1, hashed, spreadsheet_id)
+
+def delete_user(email, spreadsheet_id=None):
+    """Removes a user from users_db."""
+    if not GOOGLE_LIB_AVAILABLE:
+        return False
+
+    users = get_users(spreadsheet_id)
+    target_row = None
+    for u in users:
+        if u['email'] == email:
+            target_row = u['row_idx']
+            break
+
+    if not target_row:
+        return False
+
+    sheets_service, _ = init_services()
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    try:
+        # We use batchUpdate with deleteDimension
+        # Note: row_idx is 1-based (Excel style), API uses 0-based index.
+        # But wait, get_users logic for row_idx:
+        # header is row 1.
+        # data starts row 2.
+        # u['row_idx'] = i + 2.
+        # So if i=0 (first data row), row_idx=2.
+        # deleteDimension uses 0-based index. Row 1 is index 0. Row 2 is index 1.
+        # So we need to delete index = target_row - 1.
+
+        delete_index = target_row - 1
+
+        request = {
+            'deleteDimension': {
+                'range': {
+                    'sheetId': _get_sheet_id(sheets_service, sid, USERS_DB_TAB_NAME),
+                    'dimension': 'ROWS',
+                    'startIndex': delete_index,
+                    'endIndex': delete_index + 1
+                }
+            }
+        }
+
+        sheets_service.spreadsheets().batchUpdate(
+            spreadsheetId=sid,
+            body={'requests': [request]}
+        ).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error deleting user: {e}")
+        return False
+
+def get_global_stats(spreadsheet_id=None):
+    """Returns a dictionary with global stats."""
+    users = get_users(spreadsheet_id)
+    all_camps = get_all_camp_names(spreadsheet_id)
+
+    df_users = pd.DataFrame(users)
+    if df_users.empty:
+        users_per_camp = pd.DataFrame(columns=['camp_name', 'count'])
+    else:
+        users_per_camp = df_users['camp_name'].value_counts().reset_index()
+        users_per_camp.columns = ['camp_name', 'count']
+
+    return {
+        'total_users': len(users),
+        'total_camps': len(all_camps),
+        'users_per_camp': users_per_camp
+    }
+
+def _update_user_field(email, col_idx, value, spreadsheet_id=None):
+    """Helper to update a specific cell for a user. col_idx is 0-based relative to A."""
+    if not GOOGLE_LIB_AVAILABLE:
+        return False
+
+    users = get_users(spreadsheet_id)
+    target_row = None
+    for u in users:
+        if u['email'] == email:
+            target_row = u['row_idx']
+            break
+
+    if not target_row:
+        return False
+
+    sheets_service, _ = init_services()
+    sid = spreadsheet_id or MASTER_SPREADSHEET_ID
+
+    # Convert col_idx to letter.
+    # 0=A, 1=B, 2=C, 3=D, 4=E
+    col_letter = chr(65 + col_idx)
+    range_name = f"{USERS_DB_TAB_NAME}!{col_letter}{target_row}"
+
+    try:
+        body = {
+            'values': [[value]]
+        }
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=sid,
+            range=range_name,
+            valueInputOption='RAW',
+            body=body
+        ).execute()
+        return True
+    except Exception as e:
+        st.error(f"Error updating user field: {e}")
+        return False
+
+def _get_sheet_id(service, spreadsheet_id, sheet_name):
+    """Helper to get sheetId from sheet name."""
+    sheet_metadata = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+    for sheet in sheet_metadata.get('sheets', []):
+        if sheet['properties']['title'] == sheet_name:
+            return sheet['properties']['sheetId']
+    return None
 
 def authenticate_user(email, password, spreadsheet_id=None):
     """Authenticates a user and returns their data."""
