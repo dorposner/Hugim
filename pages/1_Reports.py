@@ -2,6 +2,12 @@ import streamlit as st
 import pandas as pd
 from fpdf import FPDF
 import googlesheets
+import sys
+from pathlib import Path
+
+# Add parent directory to path to allow importing ui_utils
+sys.path.append(str(Path(__file__).parent.parent))
+import ui_utils
 
 try:
     import plotly.express as px
@@ -10,6 +16,8 @@ except ImportError:
     HAS_PLOTLY = False
 
 st.set_page_config(page_title="Reports & Insights", page_icon="📊", layout="wide")
+
+ui_utils.render_sidebar()
 
 # ---------------------------------------------------------
 # HELPER FUNCTIONS

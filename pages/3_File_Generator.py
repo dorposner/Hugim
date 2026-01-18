@@ -2,8 +2,16 @@ import streamlit as st
 import pandas as pd
 import random
 import numpy as np
+import sys
+from pathlib import Path
+
+# Add parent directory to path to allow importing ui_utils
+sys.path.append(str(Path(__file__).parent.parent))
+import ui_utils
 
 st.set_page_config(page_title="File Generator", page_icon="📝")
+
+ui_utils.render_sidebar()
 
 st.title("📝 Data File Generator")
 st.write("Create the CSV files needed for the Camp Hugim Allocator.")

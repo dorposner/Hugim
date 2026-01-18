@@ -1,6 +1,12 @@
 import streamlit as st
 import pandas as pd
 import googlesheets
+import sys
+from pathlib import Path
+
+# Add parent directory to path to allow importing ui_utils
+sys.path.append(str(Path(__file__).parent.parent))
+import ui_utils
 
 try:
     import plotly.express as px
@@ -9,6 +15,8 @@ except ImportError:
     PLOTLY_AVAILABLE = False
 
 st.set_page_config(page_title="Super Admin Dashboard", page_icon="🛡️", layout="wide")
+
+ui_utils.render_sidebar()
 
 # Security Lock
 if not st.session_state.get("authenticated"):

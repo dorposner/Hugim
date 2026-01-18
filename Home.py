@@ -3,6 +3,8 @@ import pandas as pd
 from pathlib import Path
 import googlesheets  # NEW: Import the Google Sheets module
 import importlib
+import ui_utils  # NEW: Import UI Utils
+
 importlib.reload(googlesheets) # Force reload to ensure latest logic is used
 
 st.set_page_config(
@@ -132,40 +134,29 @@ def main():
         login_screen()
         return
 
+    # Render Sidebar via Utility
+    ui_utils.render_sidebar()
+
     if "allocation_run" not in st.session_state:
         st.session_state["allocation_run"] = False
     if "last_upload_key" not in st.session_state:
         st.session_state["last_upload_key"] = ""
 
     # ---------------------------------------------------------
-    # SIDEBAR FOR CAMP CONFIGURATION
+    # CAMP CONFIGURATION LOADING LOGIC (Hidden from Sidebar)
     # ---------------------------------------------------------
-    st.sidebar.title("Camp Configuration")
-
-    # Authenticated User Info
-    user_email = st.session_state.get("user_email", "Unknown")
     current_camp = st.session_state.get("current_camp_name")
-
-    st.sidebar.markdown(f"**User:** {user_email}")
-    st.sidebar.markdown(f"**Camp:** {current_camp}")
-
-    if st.sidebar.button("Logout", key="logout_btn"):
-        st.session_state.clear()
-        st.rerun()
-
     camp_name_input = current_camp
 
-    # SAFETY MECHANISM
     # Check if camp exists immediately
     is_new_camp = True
     if camp_name_input:
-        # Use default ID for regular users
         all_camps = get_cached_camp_names()
         if camp_name_input in all_camps:
-            st.sidebar.success("Camp found! Data loaded.")
             is_new_camp = False
         else:
-            st.sidebar.info("New Camp. Will be created upon saving.")
+            # Maybe a toast here?
+            pass
 
     # Load Logic
     if camp_name_input and not st.session_state.get("config_loaded_flag", False):
@@ -188,74 +179,9 @@ def main():
                         st.session_state["prefs_df"] = config['prefs_df']
                     if 'assignments_df' in config and not config['assignments_df'].empty:
                         st.session_state["assignments_df"] = config['assignments_df']
-                    st.sidebar.success(f"Configuration loaded!")
+                    st.toast(f"Configuration loaded for {camp_name_input}!", icon="✅")
                 else:
-                    st.sidebar.warning("Camp found in list but failed to load config.")
-        # If it is a new camp, we just proceed with empty state
-
-    # Save Logic
-    if st.sidebar.button("Save Camp Configuration"):
-        if not camp_name_input:
-            st.sidebar.error("Please enter a Camp Name.")
-        elif "hugname" not in st.session_state:
-            st.sidebar.error("Please configure the columns and periods before saving.")
-        else:
-             # Gather data from session state
-             try:
-                 # Get selected periods
-                 periods = st.session_state.get("periods_selected", [])
-
-                 # Capture any prefixes for periods that might have been added manually
-                 prefixes = {}
-                 all_period_keys = [k for k in st.session_state.keys() if k.startswith("pref_prefix_")]
-                 for key in all_period_keys:
-                     p_name = key.replace("pref_prefix_", "")
-                     prefixes[p_name] = st.session_state[key]
-                     if p_name not in periods:
-                         periods.append(p_name)
-
-                 config_data = {
-                     'config': {
-                         'col_hug_name': st.session_state.get("hugname"),
-                         'col_capacity': st.session_state.get("capacity"),
-                         'col_minimum': st.session_state.get("min_campers"),
-                         'col_camper_id': st.session_state.get("camperid"),
-                         'max_preferences_per_period': st.session_state.get("detected_max_prefs", 5)
-                     },
-                     'periods': periods,
-                     'preference_prefixes': prefixes
-                 }
-
-                 # Get current dataframes
-                 hugim_df_save = st.session_state.get("hugim_df")
-                 prefs_df_save = st.session_state.get("prefs_df")
-                 assignments_df_save = st.session_state.get("assignments_df")
-
-                 with st.sidebar.status("Saving to Master Spreadsheet..."):
-                     # Note: save_camp_state uses default spreadsheet ID
-                     success = googlesheets.save_camp_state(camp_name_input, config_data, hugim_df_save, prefs_df_save, assignments_df_save)
-                     if success:
-                         st.sidebar.success("Configuration and data saved successfully!")
-                         # Refresh cache since we added a new camp
-                         get_cached_camp_names.clear()
-                     else:
-                         st.sidebar.error("Failed to save configuration.")
-             except Exception as e:
-                 st.sidebar.error(f"Error gathering configuration: {e}")
-
-    # Reset Logic
-    if st.sidebar.button("Reset Configuration"):
-        st.session_state["pending_config"] = None
-        st.session_state["current_camp_name"] = None
-        keys_to_clear = ["hugname", "capacity", "min_campers", "camperid", "periods_selected"]
-        for k in keys_to_clear:
-            if k in st.session_state:
-                del st.session_state[k]
-        # Also clear prefix keys
-        for k in list(st.session_state.keys()):
-            if k.startswith("pref_prefix_"):
-                del st.session_state[k]
-        st.rerun()
+                    st.toast("Camp found but failed to load config.", icon="⚠️")
 
     # ---------------------------------------------------------
     # MAIN APP
@@ -276,7 +202,7 @@ def main():
         - Preference columns for each period (such as Aleph_1, Aleph_2, ..., Gimmel_5)
         """)
 
-    st.info("💡 Need sample data? Use the **[File Generator](/generate_files)** page to create random test files.")
+    st.info("💡 Need sample data? Use the **[File Generator](/File_Generator)** page to create random test files.")
 
     st.write("Upload your CSV files below. You can preview and edit before running allocation:")
 
@@ -354,9 +280,6 @@ def main():
             saved_prefixes = config.get('preference_prefixes', {})
             # We can set these even if widget not created yet, Streamlit will pick them up
             for p, prefix in saved_prefixes.items():
-                # We should verify if prefix is roughly valid?
-                # Ideally we check against sorted(period_prefixes) derived below,
-                # but we can just set it and let the user correct if needed.
                 st.session_state[f"pref_prefix_{p}"] = prefix
 
             del st.session_state["pending_config"]
@@ -392,8 +315,6 @@ def main():
         if new_period and new_period.strip():
             new_period_clean = new_period.strip()
             if new_period_clean not in period_cols:
-                # We can't easily append to the multiselect output variable to influence the options,
-                # but we can append to the list used for mapping.
                 period_cols.append(new_period_clean)
                 st.success(f"New period '{new_period_clean}' has been added to the list (UI only).")
             else:
