@@ -60,6 +60,34 @@ with tab1:
     all_users_df = googlesheets.get_all_users()
     st.dataframe(all_users_df, use_container_width=True)
 
+    st.divider()
+    st.subheader("Deep Camp Analytics")
+
+    if st.button("🔄 Refresh Global Analytics"):
+        progress_bar = st.progress(0, text="Fetching camp data...")
+
+        def update_progress(p):
+            progress_bar.progress(p, text=f"Fetching camp data... {int(p*100)}%")
+
+        analytics_df = googlesheets.get_all_camps_analytics(progress_callback=update_progress)
+        progress_bar.empty()
+        st.session_state['global_analytics'] = analytics_df
+
+    if 'global_analytics' in st.session_state:
+        df_display = st.session_state['global_analytics']
+
+        # Function to highlight cells
+        def highlight_unassigned_bg(val):
+            if isinstance(val, (int, float)) and val > 0:
+                return 'background-color: #ffcccc; color: #990000'
+            return ''
+
+        # Apply styling
+        st.dataframe(
+            df_display.style.map(highlight_unassigned_bg, subset=['Unassigned Slots']),
+            use_container_width=True
+        )
+
 # --- TAB 2: User Management ---
 with tab2:
     st.header("User Management")
