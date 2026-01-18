@@ -36,7 +36,7 @@ def load_hugim(path: str, mapping: dict):
     hugim = {period: {} for period in periods}
     rows_skipped = 0
 
-    for i, row in df.iterrows():
+    for i, row in enumerate(df.to_dict('records')):
         name = str(row[mapping["HugName"]]).strip()
         raw_capacity = row[mapping["Capacity"]]
         raw_min = row[mapping["Minimum"]]
@@ -108,7 +108,7 @@ def load_preferences(path: str, mapping: dict):
             score_column = col
             break
 
-    for _, row in df.iterrows():
+    for row in df.to_dict('records'):
         camper_id = str(row[mapping["CamperID"]]).strip()
         preferences = {}
         for period, prefix in period_map.items():
